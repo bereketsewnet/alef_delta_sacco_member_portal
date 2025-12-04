@@ -1,0 +1,70 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import "@/lib/i18n";
+
+// Pages
+import Index from "./pages/Index";
+import Login from "./pages/auth/Login";
+import RequestReset from "./pages/auth/RequestReset";
+import Dashboard from "./pages/client/Dashboard";
+import Accounts from "./pages/client/Accounts";
+import Transactions from "./pages/client/Transactions";
+import Loans from "./pages/client/Loans";
+import LoanDetail from "./pages/client/LoanDetail";
+import Requests from "./pages/client/Requests";
+import Profile from "./pages/client/Profile";
+import Notifications from "./pages/client/Notifications";
+import NotFound from "./pages/NotFound";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000, // 30 seconds
+      retry: 1,
+    },
+  },
+});
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Index />} />
+          
+          {/* Auth Routes */}
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/request-reset" element={<RequestReset />} />
+          
+          {/* Member Routes */}
+          <Route path="/client/dashboard" element={<Dashboard />} />
+          <Route path="/client/accounts" element={<Accounts />} />
+          <Route path="/client/accounts/:accountId/transactions" element={<Transactions />} />
+          <Route path="/client/loans" element={<Loans />} />
+          <Route path="/client/loans/:loanId" element={<LoanDetail />} />
+          <Route path="/client/requests" element={<Requests />} />
+          <Route path="/client/profile" element={<Profile />} />
+          <Route path="/client/notifications" element={<Notifications />} />
+          
+          {/* Deep Link Entry Point for Telegram Bot */}
+          <Route path="/miniapp" element={<Index />} />
+          
+          {/* Redirects */}
+          <Route path="/dashboard" element={<Navigate to="/client/dashboard" replace />} />
+          <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+          
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;

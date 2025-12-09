@@ -9,8 +9,9 @@ import { KPIHeader } from '@/components/KPIHeader';
 import { TransactionRow } from '@/components/TransactionRow';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
-import { api, mockTransactions, mockNotifications } from '@/lib/api';
+import { api } from '@/lib/api';
 
 const quickActions = [
   { icon: Wallet, label: 'Accounts', path: '/client/accounts', color: 'bg-primary/10 text-primary' },
@@ -33,9 +34,31 @@ export default function Dashboard() {
   const { data: kpiData, isLoading: kpiLoading } = useQuery({
     queryKey: ['kpi-summary'],
     queryFn: () => api.client.getKPISummary(),
+    enabled: isAuthenticated,
   });
 
-  const unreadNotifications = mockNotifications.filter(n => !n.read).length;
+  const { data: accounts, isLoading: accountsLoading } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => api.client.getAccounts(),
+    enabled: isAuthenticated,
+  });
+
+  // Get recent transactions from first account
+  const firstAccountId = accounts?.[0]?.id;
+  const { data: recentTransactionsData, isLoading: transactionsLoading } = useQuery({
+    queryKey: ['transactions', firstAccountId, 'recent'],
+    queryFn: () => api.client.getAccountTransactions(firstAccountId!, 1, 5),
+    enabled: isAuthenticated && !!firstAccountId && !!accounts && accounts.length > 0,
+  });
+
+  const { data: notifications } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api.client.getNotifications(),
+    enabled: isAuthenticated,
+  });
+
+  const unreadNotifications = notifications?.filter(n => !n.read).length || 0;
+  const recentTransactions = recentTransactionsData?.data || [];
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -126,9 +149,15 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
-            {mockTransactions.slice(0, 3).map((txn, i) => (
-              <TransactionRow key={txn.id} transaction={txn} index={i} />
-            ))}
+            {recentTransactions.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                No recent transactions
+              </div>
+            ) : (
+              recentTransactions.slice(0, 3).map((txn, i) => (
+                <TransactionRow key={txn.id} transaction={txn} index={i} />
+              ))
+            )}
           </div>
         </section>
 

@@ -1,4 +1,4 @@
-// ALEF-DELTA SACCO API Client & Mock Data
+// ALEF-DELTA SACCO API Client - Real Backend Integration
 import type {
     Member,
     Account,
@@ -11,10 +11,46 @@ import type {
     AuthResponse,
   } from '@/types';
   
-  const API_BASE = '/api';
+  // Get API base URL from environment variable
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api';
   
   // Helper to get auth token
   const getToken = () => localStorage.getItem('accessToken');
+  
+  // Helper to map product codes to account types
+  function mapProductCodeToAccountType(productCode: string): Account['account_type'] {
+    if (!productCode) return 'VOLUNTARY';
+    
+    if (productCode.includes('COMPULSORY') || productCode === 'SAV_COMPULSORY') {
+      return 'COMPULSORY';
+    }
+    if (productCode.includes('VOLUNTARY') || productCode === 'SAV_VOLUNTARY') {
+      return 'VOLUNTARY';
+    }
+    if (productCode.includes('FIXED') || productCode === 'SAV_FIXED') {
+      return 'FIXED';
+    }
+    if (productCode.includes('SHARE') || productCode === 'SHR_CAP') {
+      return 'SHARE_CAPITAL';
+    }
+    
+    // Default to voluntary for unknown types
+    return 'VOLUNTARY';
+  }
+  
+  // Helper to map backend workflow status to frontend loan status
+  function mapLoanStatus(workflowStatus: string): Loan['status'] {
+    const statusMap: Record<string, Loan['status']> = {
+      'PENDING': 'PENDING',
+      'UNDER_REVIEW': 'UNDER_REVIEW',
+      'APPROVED': 'APPROVED',
+      'REJECTED': 'REJECTED',
+      'DISBURSED': 'DISBURSED',
+      'FULLY_PAID': 'FULLY_PAID',
+    };
+    
+    return statusMap[workflowStatus] || 'PENDING';
+  }
   
   // Base fetch with auth
   async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -30,7 +66,7 @@ import type {
   
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message);
+      throw new Error(error.message || error.error?.message || 'Request failed');
     }
   
     return response.json();
@@ -290,101 +326,323 @@ import type {
     { month: 'Dec', amount: 180000 },
   ];
   
-  // ============= API ENDPOINTS (Mock implementations) =============
+  // ============= API ENDPOINTS (Real Backend Integration) =============
   
   export const api = {
     auth: {
+      /**
+       * Login with phone number and password
+       * POST /api/auth/login
+       */
       login: async (phone: string, password: string): Promise<AuthResponse> => {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const response = await apiFetch<{
+          accessToken: string;
+          refreshToken: string;
+          member: any;
+        }>('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            actor: 'MEMBER',  // Backend expects 'actor' not 'subject_type'
+            identifier: phone, 
+            password
+          }),
+        });
         
-        if (phone === '+251911234567' && password === 'password123') {
-          return {
-            accessToken: 'mock-jwt-token',
-            refreshToken: 'mock-refresh-token',
-            member: mockMember,
-          };
-        }
-        throw new Error('Invalid phone number or password');
+        // Backend returns 'member' object directly
+        return {
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken,
+          member: response.member as Member,
+        };
       },
       
+      /**
+       * Request password reset OTP
+       * POST /api/auth/request-otp
+       */
       requestOtp: async (email: string): Promise<{ otp_req_id: string }> => {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        return { otp_req_id: 'otp-123' };
+        return apiFetch('/auth/request-otp', {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        });
       },
       
+      /**
+       * Verify OTP and reset password
+       * POST /api/auth/verify-otp
+       */
+      verifyOtp: async (otp_req_id: string, otp: string, new_password: string): Promise<void> => {
+        await apiFetch('/auth/verify-otp', {
+          method: 'POST',
+          body: JSON.stringify({ otp_req_id, otp, new_password }),
+        });
+      },
+      
+      /**
+       * Change password (authenticated)
+       * POST /api/auth/change-password
+       */
       changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        if (currentPassword !== 'password123') {
-          throw new Error('Current password is incorrect');
-        }
+        await apiFetch('/auth/change-password', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            current_password: currentPassword, 
+            new_password: newPassword 
+          }),
+        });
+      },
+      
+      /**
+       * Refresh access token
+       * POST /api/auth/refresh
+       */
+      refresh: async (refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> => {
+        return apiFetch('/auth/refresh', {
+          method: 'POST',
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
       },
     },
     
     client: {
+      /**
+       * Get current member profile
+       * GET /api/client/me
+       */
       getMe: async (): Promise<Member> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return mockMember;
+        const response = await apiFetch<{ member: Member }>('/client/me');
+        return response.member;
       },
       
+      /**
+       * Get dashboard KPI summary
+       * Note: This needs to be calculated from accounts and loans
+       */
       getKPISummary: async (): Promise<KPISummary> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return mockKPISummary;
-      },
-      
-      getAccounts: async (): Promise<Account[]> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return mockAccounts;
-      },
-      
-      getAccountTransactions: async (accountId: string, page = 1): Promise<{ data: Transaction[]; hasMore: boolean }> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return { data: mockTransactions.filter(t => t.account_id === accountId || !accountId), hasMore: page < 3 };
-      },
-      
-      getLoans: async (): Promise<Loan[]> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return mockLoans;
-      },
-      
-      getLoanDetail: async (loanId: string): Promise<Loan & { schedule: LoanScheduleItem[] }> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const loan = mockLoans.find(l => l.id === loanId) || mockLoans[0];
-        return { ...loan, schedule: mockLoanSchedule };
-      },
-      
-      getRequests: async (): Promise<Request[]> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return mockRequests;
-      },
-      
-      createRequest: async (data: { type: string; amount?: number; description: string }): Promise<Request> => {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Get accounts and loans to calculate KPIs
+        const [accounts, loans] = await Promise.all([
+          api.client.getAccounts(),
+          api.client.getLoans(),
+        ]);
+        
+        // Calculate total savings
+        const total_savings = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+        
+        // Find active loans
+        const activeLoans = loans.filter(l => 
+          l.status === 'APPROVED' || l.status === 'DISBURSED'
+        );
+        
+        // Calculate loan outstanding
+        const loan_outstanding = activeLoans.reduce((sum, loan) => 
+          sum + loan.outstanding_balance, 0
+        );
+        
+        // Get next payment info from first active loan
+        const nextLoan = activeLoans.find(l => l.next_payment_date);
+        
         return {
-          id: Date.now().toString(),
-          request_id: `REQ-${Date.now()}`,
-          type: data.type as Request['type'],
-          status: 'PENDING',
-          amount: data.amount,
-          description: data.description,
-          created_at: new Date().toISOString(),
+          total_savings,
+          loan_outstanding,
+          next_payment_amount: nextLoan?.monthly_installment || 0,
+          next_payment_date: nextLoan?.next_payment_date || null,
+          savings_change_percent: 0, // TODO: Calculate from historical data
+          total_accounts: accounts.length,
+          active_loans: activeLoans.length,
         };
       },
       
-      getNotifications: async (): Promise<Notification[]> => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return mockNotifications;
+      /**
+       * Get member accounts
+       * GET /api/client/accounts
+       */
+      getAccounts: async (): Promise<Account[]> => {
+        const response = await apiFetch<{ data: any[] }>('/client/accounts');
+        
+        // Transform backend response to match frontend types
+        return response.data.map((account: any) => ({
+          id: account.account_id,  // Backend uses account_id, frontend expects id
+          account_number: account.product_code || account.account_id,  // Use product_code as account number
+          account_type: mapProductCodeToAccountType(account.product_code),
+          balance: Number(account.balance || 0),
+          lien_amount: Number(account.lien_amount || 0),
+          available_balance: Number(account.available_balance || 0),
+          status: account.status as Account['status'],
+          interest_rate: 0,  // TODO: Get from product configuration
+          last_transaction_date: account.updated_at,
+          created_at: account.created_at,
+        }));
       },
       
+      /**
+       * Get account transactions
+       * GET /api/client/accounts/:accountId/transactions
+       */
+      getAccountTransactions: async (
+        accountId: string, 
+        page = 1,
+        limit = 20
+      ): Promise<{ data: Transaction[]; hasMore: boolean }> => {
+        const offset = (page - 1) * limit;
+        const response = await apiFetch<{ data: Transaction[] }>(
+          `/client/accounts/${accountId}/transactions?limit=${limit}&offset=${offset}`
+        );
+        
+        return {
+          data: response.data,
+          hasMore: response.data.length === limit,
+        };
+      },
+      
+      /**
+       * Get member loans
+       * GET /api/client/loans
+       */
+      getLoans: async (): Promise<Loan[]> => {
+        const response = await apiFetch<{ data: any[] }>('/client/loans');
+        
+        // Transform backend response to match frontend types
+        return response.data.map((loan: any) => ({
+          id: loan.loan_id,
+          loan_id: loan.loan_id,
+          product_name: loan.product_code || 'Loan',
+          applied_amount: Number(loan.applied_amount || 0),
+          approved_amount: Number(loan.approved_amount || 0),
+          interest_rate: Number(loan.interest_rate || 0),
+          interest_type: (loan.interest_type || 'DECLINING') as Loan['interest_type'],
+          term_months: Number(loan.term_months || 0),
+          repayment_frequency: 'MONTHLY' as Loan['repayment_frequency'],
+          monthly_installment: 0,  // TODO: Calculate from loan details
+          outstanding_balance: Number(loan.outstanding_balance || loan.approved_amount || 0),
+          total_paid: Number(loan.total_paid || 0),
+          total_interest: 0,
+          total_penalty: Number(loan.total_penalty || 0),
+          status: mapLoanStatus(loan.workflow_status),
+          purpose: loan.purpose || '',
+          next_payment_date: loan.next_payment_date,
+          days_overdue: 0,
+          disbursed_at: loan.disbursement_date,
+          created_at: loan.created_at,
+        }));
+      },
+      
+      /**
+       * Get loan detail with schedule
+       * GET /api/client/loans/:loanId/schedule
+       */
+      getLoanDetail: async (loanId: string): Promise<Loan & { schedule: LoanScheduleItem[] }> => {
+        const response = await apiFetch<{ loan: Loan; schedule: LoanScheduleItem[] }>(
+          `/client/loans/${loanId}/schedule`
+        );
+        
+        return {
+          ...response.loan,
+          schedule: response.schedule,
+        };
+      },
+      
+      /**
+       * Get member requests
+       * Note: This endpoint may not exist yet in backend
+       * Falling back to empty array for now
+       */
+      getRequests: async (): Promise<Request[]> => {
+        try {
+          const response = await apiFetch<{ data: Request[] }>('/client/requests');
+          return response.data;
+        } catch (error) {
+          // Silently fail - endpoint not implemented yet
+          return [];
+        }
+      },
+      
+      /**
+       * Create a new request
+       * Note: This endpoint may not exist yet in backend
+       */
+      createRequest: async (data: { 
+        type: string; 
+        amount?: number; 
+        description: string;
+        account_id?: string;
+        loan_id?: string;
+      }): Promise<Request> => {
+        try {
+          return await apiFetch<Request>('/client/requests', {
+            method: 'POST',
+            body: JSON.stringify(data),
+          });
+        } catch (error) {
+          console.warn('Create request endpoint not available:', error);
+          throw new Error('Request creation is not available yet. Please contact staff directly.');
+        }
+      },
+      
+      /**
+       * Get notifications
+       * Note: This endpoint may not exist yet in backend
+       */
+      getNotifications: async (): Promise<Notification[]> => {
+        try {
+          const response = await apiFetch<{ data: Notification[] }>('/client/notifications');
+          return response.data;
+        } catch (error) {
+          // Silently fail - endpoint not implemented yet
+          return [];
+        }
+      },
+      
+      /**
+       * Mark notification as read
+       */
       markNotificationRead: async (id: string): Promise<void> => {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        try {
+          await apiFetch(`/client/notifications/${id}/read`, {
+            method: 'PUT',
+          });
+        } catch (error) {
+          // Silently fail
+        }
+      },
+      
+      /**
+       * Mark all notifications as read
+       */
+      markAllNotificationsRead: async (): Promise<void> => {
+        try {
+          await apiFetch('/client/notifications/read-all', {
+            method: 'PUT',
+          });
+        } catch (error) {
+          // Silently fail
+        }
       },
     },
     
     uploads: {
-      upload: async (file: File): Promise<{ url: string }> => {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return { url: `https://placeholder.com/uploads/${file.name}` };
+      /**
+       * Upload a file
+       * POST /api/uploads
+       */
+      upload: async (file: File, type?: string): Promise<{ url: string }> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (type) formData.append('type', type);
+        
+        const token = getToken();
+        const response = await fetch(`${API_BASE}/uploads`, {
+          method: 'POST',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+        
+        return response.json();
       },
     },
   };

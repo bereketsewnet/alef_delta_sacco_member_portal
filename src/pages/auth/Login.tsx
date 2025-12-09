@@ -16,7 +16,7 @@ import { toast } from '@/hooks/use-toast';
 
 const loginSchema = z.object({
   phone: z.string().min(10, 'Please enter a valid phone number'),
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   remember: z.boolean().optional(),
 });
 
@@ -36,8 +36,8 @@ export default function Login() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      phone: '+251911234567',
-      password: 'password123',
+      phone: '',
+      password: '',
       remember: false,
     },
   });
@@ -160,10 +160,10 @@ export default function Login() {
             )}
           </Button>
 
-          {/* Demo Credentials */}
+          {/* Info Note */}
           <div className="p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground text-center">
-              Demo: +251911234567 / password123
+              Use your registered phone number and password (min. 6 characters)
             </p>
           </div>
         </form>

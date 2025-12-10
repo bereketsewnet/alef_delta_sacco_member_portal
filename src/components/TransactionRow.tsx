@@ -137,7 +137,7 @@ export function TransactionRow({ transaction, index = 0 }: TransactionRowProps) 
                 </div>
               )}
 
-              {/* Receipt */}
+              {/* Receipt - Only show if receipt URL exists */}
               {transaction.receipt_url && (
                 <div className="flex items-center gap-2 text-sm">
                   <Receipt className="h-4 w-4 text-muted-foreground" />
@@ -145,7 +145,7 @@ export function TransactionRow({ transaction, index = 0 }: TransactionRowProps) 
                     href={transaction.receipt_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline"
+                    className="text-primary hover:underline flex items-center gap-1"
                   >
                     View Receipt
                   </a>

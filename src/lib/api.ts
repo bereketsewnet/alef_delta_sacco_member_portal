@@ -21,20 +21,22 @@ import type {
   function mapProductCodeToAccountType(productCode: string): Account['account_type'] {
     if (!productCode) return 'VOLUNTARY';
     
-    if (productCode.includes('COMPULSORY') || productCode === 'SAV_COMPULSORY') {
+    const code = productCode.toUpperCase();
+    
+    if (code.includes('COMPULSORY') || code === 'SAV_COMPULSORY' || code === 'COMPULSORY') {
       return 'COMPULSORY';
     }
-    if (productCode.includes('VOLUNTARY') || productCode === 'SAV_VOLUNTARY') {
+    if (code.includes('VOLUNTARY') || code === 'SAV_VOLUNTARY' || code === 'VOLUNTARY') {
       return 'VOLUNTARY';
     }
-    if (productCode.includes('FIXED') || productCode === 'SAV_FIXED') {
+    if (code.includes('FIXED') || code === 'SAV_FIXED' || code === 'FIXED') {
       return 'FIXED';
     }
-    if (productCode.includes('SHARE') || productCode === 'SHR_CAP') {
+    if (code.includes('SHARE') || code.includes('CAPITAL') || code === 'SHR_CAP' || code === 'SHARE_CAPITAL') {
       return 'SHARE_CAPITAL';
     }
     
-    // Default to voluntary for unknown types
+    // Default to voluntary for unknown types (ensures it's always a valid AccountType)
     return 'VOLUNTARY';
   }
   
@@ -475,6 +477,60 @@ import type {
       },
       
       /**
+       * Get all member transactions (across all accounts)
+       * GET /api/client/transactions
+       */
+      getTransactions: async (
+        page = 1,
+        limit = 20
+      ): Promise<{ data: Transaction[]; hasMore: boolean }> => {
+        const offset = (page - 1) * limit;
+        const response = await apiFetch<{ data: any[] }>(
+          `/client/transactions?limit=${limit}&offset=${offset}`
+        );
+        
+        // Transform backend response to match frontend Transaction type
+        const transactions: Transaction[] = response.data.map((txn: any) => {
+          // Construct full URL for receipt if it exists
+          let receiptUrl = null;
+          if (txn.receipt_photo_url || txn.receipt_url) {
+            const receiptPath = txn.receipt_photo_url || txn.receipt_url;
+            // If it's already a full URL, use it; otherwise construct from API base
+            if (receiptPath.startsWith('http://') || receiptPath.startsWith('https://')) {
+              receiptUrl = receiptPath;
+            } else {
+              // Extract API base URL (remove /api suffix) and construct full URL
+              const apiUrl = new URL(API_BASE);
+              const baseUrl = `${apiUrl.protocol}//${apiUrl.host}`;
+              const normalizedPath = receiptPath.startsWith('/') ? receiptPath : `/${receiptPath}`;
+              receiptUrl = `${baseUrl}${normalizedPath}`;
+            }
+          }
+          
+          return {
+            id: txn.txn_id || txn.id,
+            transaction_id: txn.txn_id || txn.transaction_id,
+            account_id: txn.account_id,
+            type: (txn.txn_type || txn.type || 'DEPOSIT') as Transaction['type'],
+            amount: Number(txn.amount || 0),
+            balance_after: Number(txn.balance_after || 0),
+            reference: txn.reference || '',
+            description: txn.reference || '',
+            receipt_url: receiptUrl || undefined,
+            performed_by: txn.performed_by_username 
+              ? `${txn.performed_by_username}${txn.performed_by_role ? ` (${txn.performed_by_role.toLowerCase()})` : ''}`
+              : txn.performed_by || 'System',
+            created_at: txn.created_at,
+          };
+        });
+        
+        return {
+          data: transactions,
+          hasMore: response.data.length === limit,
+        };
+      },
+      
+      /**
        * Get account transactions
        * GET /api/client/accounts/:accountId/transactions
        */
@@ -484,12 +540,50 @@ import type {
         limit = 20
       ): Promise<{ data: Transaction[]; hasMore: boolean }> => {
         const offset = (page - 1) * limit;
-        const response = await apiFetch<{ data: Transaction[] }>(
+        const response = await apiFetch<{ data: any[] }>(
           `/client/accounts/${accountId}/transactions?limit=${limit}&offset=${offset}`
         );
         
+        // Transform backend response to match frontend Transaction type
+        const transactions: Transaction[] = response.data.map((txn: any) => {
+          // Construct full URL for receipt if it exists
+          let receiptUrl = null;
+          if (txn.receipt_photo_url || txn.receipt_url) {
+            const receiptPath = txn.receipt_photo_url || txn.receipt_url;
+            // If it's already a full URL, use it; otherwise construct from API base
+            if (receiptPath.startsWith('http://') || receiptPath.startsWith('https://')) {
+              receiptUrl = receiptPath;
+            } else {
+              // Extract API base URL (remove /api suffix) and construct full URL
+              // API_BASE is like: http://157.173.127.142:4001/api
+              // We need: http://157.173.127.142:4001/uploads/...
+              const apiUrl = new URL(API_BASE);
+              const baseUrl = `${apiUrl.protocol}//${apiUrl.host}`; // http://157.173.127.142:4001
+              // Ensure receipt path starts with /
+              const normalizedPath = receiptPath.startsWith('/') ? receiptPath : `/${receiptPath}`;
+              receiptUrl = `${baseUrl}${normalizedPath}`;
+            }
+          }
+          
+          return {
+            id: txn.txn_id || txn.id,
+            transaction_id: txn.txn_id || txn.transaction_id,
+            account_id: txn.account_id,
+            type: (txn.txn_type || txn.type || 'DEPOSIT') as Transaction['type'],
+            amount: Number(txn.amount || 0),
+            balance_after: Number(txn.balance_after || 0),
+            reference: txn.reference || '',
+            description: txn.reference || '',
+            receipt_url: receiptUrl || undefined,
+            performed_by: txn.performed_by_username 
+              ? `${txn.performed_by_username}${txn.performed_by_role ? ` (${txn.performed_by_role.toLowerCase()})` : ''}`
+              : txn.performed_by || 'System',
+            created_at: txn.created_at,
+          };
+        });
+        
         return {
-          data: response.data,
+          data: transactions,
           hasMore: response.data.length === limit,
         };
       },
@@ -554,6 +648,56 @@ import type {
           // Silently fail - endpoint not implemented yet
           return [];
         }
+      },
+      
+      /**
+       * Create deposit request
+       * POST /api/client/deposit-requests
+       */
+      createDepositRequest: async (payload: {
+        account_id: string;
+        amount: number;
+        reference_number?: string;
+        description?: string;
+        receipt?: File;
+      }): Promise<any> => {
+        const formData = new FormData();
+        formData.append('account_id', payload.account_id);
+        formData.append('amount', payload.amount.toString());
+        if (payload.reference_number) {
+          formData.append('reference_number', payload.reference_number);
+        }
+        if (payload.description) {
+          formData.append('description', payload.description);
+        }
+        if (payload.receipt) {
+          formData.append('receipt', payload.receipt);
+        }
+        
+        const token = getToken();
+        const response = await fetch(`${API_BASE}/client/deposit-requests`, {
+          method: 'POST',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: 'Request failed' }));
+          throw new Error(error.message || error.error?.message || 'Request failed');
+        }
+        
+        return response.json();
+      },
+      
+      /**
+       * Get deposit requests
+       * GET /api/client/deposit-requests
+       */
+      getDepositRequests: async (): Promise<any[]> => {
+        const response = await apiFetch<{ data: any[] }>('/client/deposit-requests');
+        return response.data;
       },
       
       /**

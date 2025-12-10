@@ -43,12 +43,11 @@ export default function Dashboard() {
     enabled: isAuthenticated,
   });
 
-  // Get recent transactions from first account
-  const firstAccountId = accounts?.[0]?.id;
+  // Get recent transactions from all accounts
   const { data: recentTransactionsData, isLoading: transactionsLoading } = useQuery({
-    queryKey: ['transactions', firstAccountId, 'recent'],
-    queryFn: () => api.client.getAccountTransactions(firstAccountId!, 1, 5),
-    enabled: isAuthenticated && !!firstAccountId && !!accounts && accounts.length > 0,
+    queryKey: ['transactions', 'recent'],
+    queryFn: () => api.client.getTransactions(1, 5),
+    enabled: isAuthenticated,
   });
 
   const { data: notifications } = useQuery({

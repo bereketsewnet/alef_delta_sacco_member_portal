@@ -8,16 +8,25 @@ import { useTranslation } from 'react-i18next';
 import { TransactionRow } from '@/components/TransactionRow';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
-import { api, mockAccounts, mockTransactions } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Transactions() {
   const { t } = useTranslation();
   const { accountId } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Find account details
-  const account = mockAccounts.find(a => a.id === accountId);
+  // Fetch accounts to find the selected account
+  const { data: accounts } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => api.client.getAccounts(),
+    enabled: isAuthenticated,
+  });
+
+  // Find account details from fetched accounts
+  const account = accounts?.find(a => a.id === accountId);
   
   // Fetch transactions with infinite scroll
   const {
@@ -31,9 +40,10 @@ export default function Transactions() {
     queryFn: ({ pageParam = 1 }) => api.client.getAccountTransactions(accountId || '', pageParam),
     initialPageParam: 1,
     getNextPageParam: (lastPage, pages) => lastPage.hasMore ? pages.length + 1 : undefined,
+    enabled: isAuthenticated && !!accountId && !!accounts && accounts.length > 0,
   });
 
-  const transactions = data?.pages.flatMap(page => page.data) || mockTransactions;
+  const transactions = data?.pages.flatMap(page => page.data) || [];
 
   const handleExport = () => {
     // Mock CSV export

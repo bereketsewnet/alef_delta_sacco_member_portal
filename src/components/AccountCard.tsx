@@ -46,6 +46,13 @@ export function AccountCard({ account, recentTransactions = [], index = 0 }: Acc
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Safety check: ensure account_type exists in the record, default to VOLUNTARY
+  const accountType = account.account_type && accountTypeColors[account.account_type] 
+    ? account.account_type 
+    : 'VOLUNTARY';
+  const colorClass = accountTypeColors[accountType] || accountTypeColors['VOLUNTARY'];
+  const icon = accountTypeIcons[accountType] || accountTypeIcons['VOLUNTARY'];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -53,16 +60,16 @@ export function AccountCard({ account, recentTransactions = [], index = 0 }: Acc
       transition={{ delay: index * 0.1 }}
       className={cn(
         "rounded-xl border bg-gradient-to-br p-4 shadow-sm transition-shadow hover:shadow-md",
-        accountTypeColors[account.account_type]
+        colorClass
       )}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{accountTypeIcons[account.account_type]}</span>
+          <span className="text-2xl">{icon}</span>
           <div>
             <h3 className="font-semibold text-foreground">
-              {t(`accounts.types.${account.account_type}`)}
+              {t(`accounts.types.${accountType}`)}
             </h3>
             <div className="flex items-center gap-2 mt-0.5">
               <code className="text-xs text-muted-foreground font-mono">

@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AccountCard } from '@/components/AccountCard';
-import { RequestForm } from '@/components/RequestForm';
+import { DepositRequestForm } from '@/components/DepositRequestForm';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { api, mockTransactions } from '@/lib/api';
@@ -95,14 +95,15 @@ export default function Accounts() {
       </Button>
 
       {/* Request Deposit Modal */}
-      <RequestForm
+      <DepositRequestForm
         isOpen={showDepositForm}
         onClose={() => {
           setShowDepositForm(false);
           setSelectedAccountId(null);
         }}
-        type="DEPOSIT"
-        accountId={selectedAccountId || undefined}
+        onSuccess={() => {
+          // Refresh accounts or show success message
+        }}
       />
 
       <BottomNav />

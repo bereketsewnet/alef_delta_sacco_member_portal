@@ -39,10 +39,23 @@ export default function Requests() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const { data: requests, isLoading } = useQuery({
-    queryKey: ['requests'],
-    queryFn: () => api.client.getRequests(),
+  const { data: depositRequestsData, isLoading } = useQuery({
+    queryKey: ['deposit-requests'],
+    queryFn: () => api.client.getDepositRequests(),
   });
+
+  // Transform deposit requests to match Request type
+  const requests: Request[] = depositRequestsData?.map((req: any) => ({
+    id: req.request_id,
+    request_id: req.request_id,
+    type: 'DEPOSIT' as Request['type'],
+    status: req.status as Request['status'],
+    amount: Number(req.amount || 0),
+    description: req.description || '',
+    staff_notes: req.rejection_reason || (req.status === 'APPROVED' ? `Approved by ${req.approver_username || 'Staff'}` : null),
+    processed_by: req.approver_username || null,
+    created_at: req.created_at,
+  })) || [];
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">

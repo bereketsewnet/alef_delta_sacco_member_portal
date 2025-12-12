@@ -55,8 +55,19 @@ export default function LoanDetail() {
     );
   }
 
-  const repaymentProgress = ((loan.total_paid / (loan.approved_amount! + loan.total_interest)) * 100);
-  const isOverdue = loan.days_overdue > 0;
+  // Safely calculate repayment progress
+  const totalAmount = (loan.approved_amount || 0) + (loan.total_interest || 0);
+  const repaymentProgress = totalAmount > 0 
+    ? ((loan.total_paid || 0) / totalAmount) * 100 
+    : 0;
+  const isOverdue = (loan.days_overdue || 0) > 0;
+  
+  // Ensure all numeric values are valid
+  const outstandingBalance = Number(loan.outstanding_balance) || Number(loan.approved_amount) || 0;
+  const monthlyInstallment = Number(loan.monthly_installment) || 0;
+  const totalPaid = Number(loan.total_paid) || 0;
+  const totalInterest = Number(loan.total_interest) || 0;
+  const totalPenalty = Number(loan.total_penalty) || 0;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">
@@ -97,7 +108,7 @@ export default function LoanDetail() {
             <div>
               <p className="text-xs text-muted-foreground">{t('loans.outstanding')}</p>
               <p className={cn("text-xl font-bold numeric", isOverdue && "text-destructive")}>
-                ETB {formatCurrency(loan.outstanding_balance)}
+                ETB {formatCurrency(outstandingBalance)}
               </p>
             </div>
           </div>
@@ -127,17 +138,17 @@ export default function LoanDetail() {
                 </div>
               </div>
               <p className={cn("text-lg font-bold numeric", isOverdue && "text-destructive")}>
-                ETB {formatCurrency(loan.monthly_installment)}
+                ETB {formatCurrency(monthlyInstallment)}
               </p>
             </div>
           )}
 
           {/* Penalty Warning */}
-          {loan.total_penalty > 0 && (
+          {totalPenalty > 0 && (
             <div className="mt-3 p-3 bg-destructive/20 rounded-lg flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <span className="text-sm text-destructive font-medium">
-                Penalty accumulated: ETB {formatCurrency(loan.total_penalty)}
+                Penalty accumulated: ETB {formatCurrency(totalPenalty)}
               </span>
             </div>
           )}
@@ -156,9 +167,9 @@ export default function LoanDetail() {
                 { label: t('loans.interest_rate'), value: `${loan.interest_rate}%` },
                 { label: t('loans.interest_type'), value: loan.interest_type },
                 { label: t('loans.term'), value: `${loan.term_months} months` },
-                { label: t('loans.monthly_payment'), value: `ETB ${formatCurrency(loan.monthly_installment)}` },
-                { label: t('loans.total_paid'), value: `ETB ${formatCurrency(loan.total_paid)}` },
-                { label: t('loans.total_interest'), value: `ETB ${formatCurrency(loan.total_interest)}` },
+                { label: t('loans.monthly_payment'), value: `ETB ${formatCurrency(monthlyInstallment)}` },
+                { label: t('loans.total_paid'), value: `ETB ${formatCurrency(totalPaid)}` },
+                { label: t('loans.total_interest'), value: `ETB ${formatCurrency(totalInterest)}` },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between p-4">
                   <span className="text-sm text-muted-foreground">{item.label}</span>
@@ -199,8 +210,8 @@ export default function LoanDetail() {
                   >
                     <span className="font-medium">{item.period}</span>
                     <span className="text-muted-foreground">{formatDate(item.due_date)}</span>
-                    <span className="text-right numeric">{formatCurrency(item.principal)}</span>
-                    <span className="text-right numeric">{formatCurrency(item.interest)}</span>
+                    <span className="text-right numeric">{formatCurrency(item.principal || item.principal_component || 0)}</span>
+                    <span className="text-right numeric">{formatCurrency(item.interest || item.interest_component || 0)}</span>
                     <span className="text-right">
                       {item.status === 'PAID' && <CheckCircle2 className="h-4 w-4 text-success inline" />}
                       {item.status === 'PENDING' && <Clock className="h-4 w-4 text-muted-foreground inline" />}
@@ -229,7 +240,7 @@ export default function LoanDetail() {
         isOpen={showRepaymentForm}
         onClose={() => setShowRepaymentForm(false)}
         type="REPAYMENT"
-        maxAmount={loan.outstanding_balance}
+        maxAmount={outstandingBalance}
         loanId={loanId}
       />
 

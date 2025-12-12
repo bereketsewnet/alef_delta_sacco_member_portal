@@ -417,6 +417,15 @@ import type {
       },
       
       /**
+       * Get full member profile with summary
+       * GET /api/client/me
+       */
+      getProfile: async (): Promise<{ member: Member; summary: any }> => {
+        const response = await apiFetch<{ member: Member; summary: any }>('/client/me');
+        return response;
+      },
+      
+      /**
        * Get dashboard KPI summary
        * Note: This needs to be calculated from accounts and loans
        */
@@ -430,18 +439,30 @@ import type {
         // Calculate total savings
         const total_savings = accounts.reduce((sum, acc) => sum + acc.balance, 0);
         
-        // Find active loans
-        const activeLoans = loans.filter(l => 
-          l.status === 'APPROVED' || l.status === 'DISBURSED'
-        );
+        // Find active loans - use workflow_status from backend
+        const activeLoans = loans.filter(l => {
+          const status = (l as any).workflow_status || l.status;
+          const isFullyPaid = (l as any).is_fully_paid || false;
+          return (status === 'APPROVED' || status === 'DISBURSED') && !isFullyPaid;
+        });
         
-        // Calculate loan outstanding
-        const loan_outstanding = activeLoans.reduce((sum, loan) => 
-          sum + loan.outstanding_balance, 0
-        );
+        // Calculate loan outstanding - sum of all outstanding balances
+        const loan_outstanding = activeLoans.reduce((sum, loan) => {
+          const balance = loan.outstanding_balance !== null && loan.outstanding_balance !== undefined
+            ? Number(loan.outstanding_balance)
+            : (loan.approved_amount ? Number(loan.approved_amount) : 0);
+          return sum + balance;
+        }, 0);
         
-        // Get next payment info from first active loan
-        const nextLoan = activeLoans.find(l => l.next_payment_date);
+        // Get next payment info - find the earliest next payment date from all active loans
+        const loansWithNextPayment = activeLoans
+          .filter(l => l.next_payment_date && (!l.is_fully_paid || l.is_fully_paid === false))
+          .sort((a, b) => {
+            const dateA = a.next_payment_date ? new Date(a.next_payment_date).getTime() : Infinity;
+            const dateB = b.next_payment_date ? new Date(b.next_payment_date).getTime() : Infinity;
+            return dateA - dateB;
+          });
+        const nextLoan = loansWithNextPayment[0];
         
         return {
           total_savings,
@@ -507,20 +528,37 @@ import type {
             }
           }
           
+          // Determine transaction type - handle loan repayments
+          let transactionType: Transaction['type'] = 'DEPOSIT';
+          if (txn.source_type === 'LOAN_REPAYMENT' || txn.txn_type === 'LOAN_REPAYMENT') {
+            transactionType = 'LOAN_REPAYMENT' as Transaction['type'];
+          } else {
+            transactionType = (txn.txn_type || txn.type || 'DEPOSIT') as Transaction['type'];
+          }
+          
+          // Build description for loan repayments
+          let description = txn.reference || '';
+          if (txn.source_type === 'LOAN_REPAYMENT' || txn.txn_type === 'LOAN_REPAYMENT') {
+            const loanCode = txn.product_code || '';
+            const paymentMethod = txn.payment_method || 'CASH';
+            description = `Loan Repayment${loanCode ? ` - ${loanCode}` : ''} (${paymentMethod})${txn.reference ? ` - Ref: ${txn.reference}` : ''}`;
+          }
+          
           return {
             id: txn.txn_id || txn.id,
             transaction_id: txn.txn_id || txn.transaction_id,
             account_id: txn.account_id,
-            type: (txn.txn_type || txn.type || 'DEPOSIT') as Transaction['type'],
+            type: transactionType,
             amount: Number(txn.amount || 0),
             balance_after: Number(txn.balance_after || 0),
             reference: txn.reference || '',
-            description: txn.reference || '',
+            description: description,
             receipt_url: receiptUrl || undefined,
             performed_by: txn.performed_by_username 
               ? `${txn.performed_by_username}${txn.performed_by_role ? ` (${txn.performed_by_role.toLowerCase()})` : ''}`
               : txn.performed_by || 'System',
             created_at: txn.created_at,
+            loan_id: txn.loan_id || undefined, // Include loan_id for loan repayments
           };
         });
         
@@ -606,12 +644,16 @@ import type {
           interest_type: (loan.interest_type || 'DECLINING') as Loan['interest_type'],
           term_months: Number(loan.term_months || 0),
           repayment_frequency: 'MONTHLY' as Loan['repayment_frequency'],
-          monthly_installment: 0,  // TODO: Calculate from loan details
-          outstanding_balance: Number(loan.outstanding_balance || loan.approved_amount || 0),
+          monthly_installment: Number(loan.monthly_installment || 0),
+          outstanding_balance: Number(loan.outstanding_balance !== null && loan.outstanding_balance !== undefined 
+            ? loan.outstanding_balance 
+            : (loan.approved_amount || 0)),
           total_paid: Number(loan.total_paid || 0),
           total_interest: 0,
           total_penalty: Number(loan.total_penalty || 0),
           status: mapLoanStatus(loan.workflow_status),
+          workflow_status: loan.workflow_status, // Keep original for filtering
+          is_fully_paid: loan.is_fully_paid || false,
           purpose: loan.purpose || '',
           next_payment_date: loan.next_payment_date,
           days_overdue: 0,
@@ -625,13 +667,33 @@ import type {
        * GET /api/client/loans/:loanId/schedule
        */
       getLoanDetail: async (loanId: string): Promise<Loan & { schedule: LoanScheduleItem[] }> => {
-        const response = await apiFetch<{ loan: Loan; schedule: LoanScheduleItem[] }>(
+        const response = await apiFetch<{ loan: Loan; schedule: any[] }>(
           `/client/loans/${loanId}/schedule`
         );
         
+        // Map schedule items to match frontend types
+        const schedule: LoanScheduleItem[] = (response.schedule || []).map((item: any) => ({
+          period: item.period || 0,
+          due_date: item.due_date || '',
+          principal: Number(item.principal_component || item.principal || 0),
+          interest: Number(item.interest_component || item.interest || 0),
+          installment: Number(item.installment || 0),
+          balance: Number(item.balance || 0),
+          status: item.status || 'PENDING',
+        }));
+        
+        // Ensure loan has all required numeric fields
+        const loan = response.loan || {};
         return {
-          ...response.loan,
-          schedule: response.schedule,
+          ...loan,
+          outstanding_balance: Number(loan.outstanding_balance !== null && loan.outstanding_balance !== undefined 
+            ? loan.outstanding_balance 
+            : (loan.approved_amount || 0)),
+          monthly_installment: Number(loan.monthly_installment || 0),
+          total_paid: Number(loan.total_paid || 0),
+          total_interest: Number(loan.total_interest || 0),
+          total_penalty: Number(loan.total_penalty || 0),
+          schedule: schedule,
         };
       },
       
@@ -696,7 +758,61 @@ import type {
        * GET /api/client/deposit-requests
        */
       getDepositRequests: async (): Promise<any[]> => {
-        const response = await apiFetch<{ data: any[] }>('/client/deposit-requests');
+        const response = await apiFetch<{ data: any[] }>('/deposit-requests');
+        return response.data;
+      },
+      
+      /**
+       * Create loan repayment request
+       * POST /api/loan-repayment-requests
+       */
+      createLoanRepaymentRequest: async (payload: {
+        loan_id: string;
+        amount: number;
+        payment_method?: string;
+        receipt_number?: string;
+        notes?: string;
+        receipt?: File;
+      }): Promise<any> => {
+        const formData = new FormData();
+        formData.append('loan_id', payload.loan_id);
+        formData.append('amount', payload.amount.toString());
+        if (payload.payment_method) {
+          formData.append('payment_method', payload.payment_method);
+        }
+        if (payload.receipt_number) {
+          formData.append('receipt_number', payload.receipt_number);
+        }
+        if (payload.notes) {
+          formData.append('notes', payload.notes);
+        }
+        if (payload.receipt) {
+          formData.append('receipt', payload.receipt);
+        }
+        
+        const token = getToken();
+        const response = await fetch(`${API_BASE}/loan-repayment-requests`, {
+          method: 'POST',
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: 'Request failed' }));
+          throw new Error(error.message || error.error?.message || 'Request failed');
+        }
+        
+        return response.json();
+      },
+      
+      /**
+       * Get loan repayment requests
+       * GET /api/loan-repayment-requests
+       */
+      getLoanRepaymentRequests: async (): Promise<any[]> => {
+        const response = await apiFetch<{ data: any[] }>('/loan-repayment-requests');
         return response.data;
       },
       

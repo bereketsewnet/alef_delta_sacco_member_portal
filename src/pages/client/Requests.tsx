@@ -39,13 +39,20 @@ export default function Requests() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const { data: depositRequestsData, isLoading } = useQuery({
+  const { data: depositRequestsData, isLoading: depositLoading } = useQuery({
     queryKey: ['deposit-requests'],
     queryFn: () => api.client.getDepositRequests(),
   });
 
+  const { data: loanRepaymentRequestsData, isLoading: loanRepaymentLoading } = useQuery({
+    queryKey: ['loan-repayment-requests'],
+    queryFn: () => api.client.getLoanRepaymentRequests(),
+  });
+
+  const isLoading = depositLoading || loanRepaymentLoading;
+
   // Transform deposit requests to match Request type
-  const requests: Request[] = depositRequestsData?.map((req: any) => ({
+  const depositRequests: Request[] = depositRequestsData?.map((req: any) => ({
     id: req.request_id,
     request_id: req.request_id,
     type: 'DEPOSIT' as Request['type'],
@@ -56,6 +63,24 @@ export default function Requests() {
     processed_by: req.approver_username || null,
     created_at: req.created_at,
   })) || [];
+
+  // Transform loan repayment requests to match Request type
+  const loanRepaymentRequests: Request[] = loanRepaymentRequestsData?.map((req: any) => ({
+    id: req.request_id,
+    request_id: req.request_id,
+    type: 'REPAYMENT' as Request['type'],
+    status: req.status as Request['status'],
+    amount: Number(req.amount || 0),
+    description: req.notes || `Loan Repayment${req.loan_product_code ? ` - ${req.loan_product_code}` : ''} (${req.payment_method || 'CASH'})`,
+    staff_notes: req.rejection_reason || (req.status === 'APPROVED' ? `Approved by ${req.approver_username || 'Staff'}` : null),
+    processed_by: req.approver_username || null,
+    created_at: req.created_at,
+  })) || [];
+
+  // Combine both types of requests and sort by created_at descending
+  const requests: Request[] = [...depositRequests, ...loanRepaymentRequests].sort((a, b) => 
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">

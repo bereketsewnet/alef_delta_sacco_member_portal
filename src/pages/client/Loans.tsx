@@ -1,11 +1,12 @@
 // Loans List Page
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Filter } from 'lucide-react';
+import { ArrowLeft, Filter, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { LoanCard } from '@/components/LoanCard';
+import { LoanRepaymentRequestForm } from '@/components/LoanRepaymentRequestForm';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +17,7 @@ export default function Loans() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'active' | 'pending' | 'closed'>('active');
+  const [showRepaymentForm, setShowRepaymentForm] = useState(false);
 
   const { data: loans, isLoading } = useQuery({
     queryKey: ['loans'],
@@ -113,6 +115,28 @@ export default function Loans() {
           ))}
         </Tabs>
       </main>
+
+      {/* Floating Action Button */}
+      {filterLoans('active').length > 0 && (
+        <Button
+          onClick={() => setShowRepaymentForm(true)}
+          className="fixed right-4 bottom-24 md:bottom-8 h-14 w-14 rounded-full bg-primary hover:bg-primary-hover shadow-glow-primary"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
+
+      {/* Loan Repayment Request Modal */}
+      <LoanRepaymentRequestForm
+        isOpen={showRepaymentForm}
+        onClose={() => {
+          setShowRepaymentForm(false);
+        }}
+        onSuccess={() => {
+          // Refetch loans after successful request
+          // The query will automatically refetch
+        }}
+      />
 
       <BottomNav />
     </div>

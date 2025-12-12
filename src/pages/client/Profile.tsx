@@ -1,9 +1,10 @@
 // Profile Page
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, User, Phone, Mail, Calendar, MapPin, Edit2, Lock, Camera, LogOut } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Lock, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { BottomNav } from '@/components/BottomNav';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,19 @@ import { toast } from '@/hooks/use-toast';
 export default function Profile() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { member, logout } = useAuth();
+  const { member: authMember, logout } = useAuth();
+  
+  // Fetch full profile data
+  const { data: profileData, isLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const response = await api.client.getProfile();
+      return response.member;
+    },
+  });
+  
+  // Use profile data if available, fallback to auth member
+  const member = profileData || authMember;
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     current: '',
@@ -69,9 +82,8 @@ export default function Profile() {
   };
 
   const profileFields = [
-    { icon: Phone, label: t('profile.fields.phone'), value: member?.phone },
+    { icon: Phone, label: t('profile.fields.phone'), value: member?.phone_primary || member?.phone || '-' },
     { icon: Mail, label: t('profile.fields.email'), value: member?.email || '-' },
-    { icon: Calendar, label: t('profile.fields.date_of_birth'), value: member?.date_of_birth ? new Date(member.date_of_birth).toLocaleDateString('en-ET') : '-' },
     { icon: MapPin, label: t('profile.fields.address'), value: member?.address || '-' },
   ];
 
@@ -93,6 +105,14 @@ export default function Profile() {
       </header>
 
       <main className="px-4 py-4 max-w-3xl mx-auto space-y-4">
+        {isLoading ? (
+          <div className="space-y-4">
+            <div className="h-32 shimmer rounded-2xl" />
+            <div className="h-64 shimmer rounded-xl" />
+            <div className="h-32 shimmer rounded-xl" />
+          </div>
+        ) : (
+          <>
         {/* Profile Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -105,9 +125,6 @@ export default function Profile() {
               <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold">
                 {member?.first_name?.[0]}{member?.last_name?.[0]}
               </div>
-              <button className="absolute -bottom-1 -right-1 p-1.5 bg-accent rounded-full text-accent-foreground">
-                <Camera className="h-4 w-4" />
-              </button>
             </div>
             
             <div className="flex-1">
@@ -116,7 +133,7 @@ export default function Profile() {
               </h2>
               <div className="flex items-center gap-2 mt-1">
                 <code className="text-xs bg-white/20 px-2 py-0.5 rounded font-mono">
-                  {member?.member_id}
+                  {member?.membership_no || member?.member_id}
                 </code>
                 <StatusBadge status={member?.status || 'ACTIVE'} size="sm" />
               </div>
@@ -247,8 +264,12 @@ export default function Profile() {
 
         {/* Member Since */}
         <p className="text-center text-xs text-muted-foreground pt-4">
-          {t('profile.member_since')}: {member?.created_at ? new Date(member.created_at).toLocaleDateString('en-ET', { year: 'numeric', month: 'long' }) : '-'}
+          {t('profile.member_since')}: {member?.registered_date || member?.created_at 
+            ? new Date(member.registered_date || member.created_at).toLocaleDateString('en-ET', { year: 'numeric', month: 'long' }) 
+            : '-'}
         </p>
+        </>
+        )}
       </main>
 
       <BottomNav />

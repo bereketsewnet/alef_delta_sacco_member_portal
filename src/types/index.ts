@@ -105,14 +105,18 @@ export interface Member {
   export type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
   
   export interface Notification {
-    id: string;
+    notification_id: string;
+    id?: string; // Alias for notification_id
+    member_id: string;
+    type: 'DEPOSIT' | 'WITHDRAWAL' | 'LOAN_APPROVED' | 'LOAN_REJECTED' | 'LOAN_DISBURSED' | 'LOAN_REPAYMENT' | 'LOAN_REPAYMENT_APPROVED' | 'LOAN_REPAYMENT_REJECTED' | 'DEPOSIT_REQUEST_APPROVED' | 'DEPOSIT_REQUEST_REJECTED' | 'PENALTY_APPLIED' | 'INTEREST_CREDITED' | 'ACCOUNT_FROZEN' | 'ACCOUNT_UNFROZEN' | 'PROFILE_UPDATE' | 'SYSTEM';
     title: string;
     message: string;
-    type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
-    read: boolean;
-    resource_type?: string;
-    resource_id?: string;
+    metadata?: any;
+    is_read: boolean;
+    read?: boolean; // Alias for is_read
+    read_at?: string | null;
     created_at: string;
+    updated_at?: string;
   }
   
   export interface KPISummary {

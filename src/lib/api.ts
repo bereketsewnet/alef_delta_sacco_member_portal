@@ -817,6 +817,67 @@ import type {
       },
       
       /**
+       * Get notifications
+       * GET /api/client/notifications
+       */
+      getNotifications: async (filters?: { is_read?: boolean; limit?: number; offset?: number }): Promise<Notification[]> => {
+        const params = new URLSearchParams();
+        if (filters?.is_read !== undefined) {
+          params.append('is_read', filters.is_read.toString());
+        }
+        if (filters?.limit) {
+          params.append('limit', filters.limit.toString());
+        }
+        if (filters?.offset) {
+          params.append('offset', filters.offset.toString());
+        }
+        const queryString = params.toString();
+        const response = await apiFetch<{ data: Notification[] }>(
+          `/client/notifications${queryString ? `?${queryString}` : ''}`
+        );
+        return response.data;
+      },
+      
+      /**
+       * Get unread notification count
+       * GET /api/client/notifications/unread-count
+       */
+      getUnreadNotificationCount: async (): Promise<number> => {
+        const response = await apiFetch<{ count: number }>('/client/notifications/unread-count');
+        return response.count;
+      },
+      
+      /**
+       * Mark notification as read
+       * PUT /api/client/notifications/:notificationId/read
+       */
+      markNotificationAsRead: async (notificationId: string): Promise<void> => {
+        await apiFetch(`/client/notifications/${notificationId}/read`, {
+          method: 'PUT',
+        });
+      },
+      
+      /**
+       * Mark all notifications as read
+       * PUT /api/client/notifications/read-all
+       */
+      markAllNotificationsAsRead: async (): Promise<void> => {
+        await apiFetch('/client/notifications/read-all', {
+          method: 'PUT',
+        });
+      },
+      
+      /**
+       * Delete notification
+       * DELETE /api/client/notifications/:notificationId
+       */
+      deleteNotification: async (notificationId: string): Promise<void> => {
+        await apiFetch(`/client/notifications/${notificationId}`, {
+          method: 'DELETE',
+        });
+      },
+      
+      /**
        * Create a new request
        * Note: This endpoint may not exist yet in backend
        */

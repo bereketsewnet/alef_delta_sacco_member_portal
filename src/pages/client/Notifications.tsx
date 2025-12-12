@@ -1,34 +1,85 @@
 // Notifications Page
 import { motion } from 'framer-motion';
-import { ArrowLeft, Bell, CheckCircle2, Info, AlertTriangle, XCircle, Check } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCircle2, Info, AlertTriangle, XCircle, Check, TrendingUp, TrendingDown, DollarSign, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
-import { api, mockNotifications } from '@/lib/api';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 
 const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
+  if (!dateStr) return 'Just now';
+  
+  // Parse date - backend should now return ISO format, but handle both
+  let date: Date;
+  try {
+    if (dateStr.includes('T')) {
+      // ISO format
+      date = new Date(dateStr);
+    } else if (dateStr.includes(' ')) {
+      // MySQL datetime format: treat as UTC
+      date = new Date(dateStr + 'Z');
+    } else {
+      date = new Date(dateStr);
+    }
+  } catch (e) {
+    return 'Just now';
+  }
+  
   const now = new Date();
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return 'Just now';
+  }
+  
   const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
+  
+  // Handle negative differences (future dates) - likely timezone issue
+  if (diffMs < 0) {
+    // If less than 1 hour in future, treat as timezone issue
+    if (Math.abs(diffMs) < 3600000) {
+      return 'Just now';
+    }
+    return 'Just now';
+  }
+  
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
+  if (diffSecs < 10) return 'Just now';
+  if (diffSecs < 60) return `${diffSecs}s ago`;
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-ET', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-ET', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
 };
 
-const notificationTypeConfig: Record<Notification['type'], { icon: React.ReactNode; colorClass: string }> = {
-  SUCCESS: { icon: <CheckCircle2 className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
-  INFO: { icon: <Info className="h-5 w-5" />, colorClass: 'bg-primary/10 text-primary' },
-  WARNING: { icon: <AlertTriangle className="h-5 w-5" />, colorClass: 'bg-warning/10 text-warning' },
-  ERROR: { icon: <XCircle className="h-5 w-5" />, colorClass: 'bg-destructive/10 text-destructive' },
+const getNotificationConfig = (type: Notification['type']) => {
+  const configs: Record<string, { icon: React.ReactNode; colorClass: string }> = {
+    DEPOSIT: { icon: <TrendingUp className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
+    WITHDRAWAL: { icon: <TrendingDown className="h-5 w-5" />, colorClass: 'bg-warning/10 text-warning' },
+    LOAN_APPROVED: { icon: <CheckCircle2 className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
+    LOAN_REJECTED: { icon: <XCircle className="h-5 w-5" />, colorClass: 'bg-destructive/10 text-destructive' },
+    LOAN_DISBURSED: { icon: <DollarSign className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
+    LOAN_REPAYMENT: { icon: <FileText className="h-5 w-5" />, colorClass: 'bg-primary/10 text-primary' },
+    LOAN_REPAYMENT_APPROVED: { icon: <CheckCircle2 className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
+    LOAN_REPAYMENT_REJECTED: { icon: <XCircle className="h-5 w-5" />, colorClass: 'bg-destructive/10 text-destructive' },
+    DEPOSIT_REQUEST_APPROVED: { icon: <CheckCircle2 className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
+    DEPOSIT_REQUEST_REJECTED: { icon: <XCircle className="h-5 w-5" />, colorClass: 'bg-destructive/10 text-destructive' },
+    PENALTY_APPLIED: { icon: <AlertTriangle className="h-5 w-5" />, colorClass: 'bg-destructive/10 text-destructive' },
+    INTEREST_CREDITED: { icon: <TrendingUp className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
+    ACCOUNT_FROZEN: { icon: <AlertTriangle className="h-5 w-5" />, colorClass: 'bg-warning/10 text-warning' },
+    ACCOUNT_UNFROZEN: { icon: <CheckCircle2 className="h-5 w-5" />, colorClass: 'bg-success/10 text-success' },
+    PROFILE_UPDATE: { icon: <Info className="h-5 w-5" />, colorClass: 'bg-primary/10 text-primary' },
+    SYSTEM: { icon: <Bell className="h-5 w-5" />, colorClass: 'bg-primary/10 text-primary' },
+  };
+  return configs[type] || { icon: <Info className="h-5 w-5" />, colorClass: 'bg-primary/10 text-primary' };
 };
 
 export default function Notifications() {
@@ -39,43 +90,62 @@ export default function Notifications() {
   const { data: notifications, isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.client.getNotifications(),
-    initialData: mockNotifications,
+  });
+
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => api.client.getUnreadNotificationCount(),
   });
 
   const markReadMutation = useMutation({
-    mutationFn: (id: string) => api.client.markNotificationRead(id),
+    mutationFn: (id: string) => api.client.markNotificationAsRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
     },
   });
 
-  const unreadCount = notifications?.filter(n => !n.read).length || 0;
+  const markAllReadMutation = useMutation({
+    mutationFn: () => api.client.markAllNotificationsAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
+    },
+  });
 
   const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read) {
-      markReadMutation.mutate(notification.id);
+    const notificationId = notification.notification_id || notification.id;
+    const isRead = notification.is_read !== undefined ? notification.is_read : notification.read;
+    
+    if (!isRead && notificationId) {
+      markReadMutation.mutate(notificationId);
     }
     
-    // Navigate to resource if available
-    if (notification.resource_type && notification.resource_id) {
-      switch (notification.resource_type) {
-        case 'transaction':
-          navigate('/client/accounts');
-          break;
-        case 'loan':
-          navigate(`/client/loans/${notification.resource_id}`);
-          break;
-        case 'request':
-          navigate('/client/requests');
-          break;
+    // Navigate to resource if available in metadata
+    if (notification.metadata) {
+      if (notification.metadata.loan_id) {
+        navigate(`/client/loans/${notification.metadata.loan_id}`);
+      } else if (notification.metadata.account_id) {
+        navigate('/client/accounts');
       }
+    }
+    
+    // Navigate based on notification type
+    if (notification.type.includes('LOAN_REPAYMENT') || notification.type.includes('LOAN_')) {
+      if (notification.metadata?.loan_id) {
+        navigate(`/client/loans/${notification.metadata.loan_id}`);
+      } else {
+        navigate('/client/loans');
+      }
+    } else if (notification.type.includes('DEPOSIT_REQUEST') || notification.type.includes('REPAYMENT')) {
+      navigate('/client/requests');
+    } else if (notification.type === 'DEPOSIT' || notification.type === 'WITHDRAWAL') {
+      navigate('/client/accounts');
     }
   };
 
   const handleMarkAllRead = () => {
-    notifications?.filter(n => !n.read).forEach(n => {
-      markReadMutation.mutate(n.id);
-    });
+    markAllReadMutation.mutate();
   };
 
   return (
@@ -100,10 +170,11 @@ export default function Notifications() {
               variant="ghost"
               size="sm"
               onClick={handleMarkAllRead}
+              disabled={markAllReadMutation.isPending}
               className="gap-2"
             >
               <Check className="h-4 w-4" />
-              {t('notifications.mark_all_read')}
+              {markAllReadMutation.isPending ? 'Marking...' : t('notifications.mark_all_read')}
             </Button>
           )}
         </div>
@@ -124,17 +195,19 @@ export default function Notifications() {
         ) : (
           <div className="space-y-2">
             {notifications?.map((notification, i) => {
-              const config = notificationTypeConfig[notification.type];
+              const notificationId = notification.notification_id || notification.id;
+              const isRead = notification.is_read !== undefined ? notification.is_read : notification.read;
+              const config = getNotificationConfig(notification.type);
               return (
                 <motion.button
-                  key={notification.id}
+                  key={notificationId}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
                     "w-full text-left bg-card rounded-xl border border-border/50 p-4 transition-all hover:shadow-sm",
-                    !notification.read && "bg-primary/5 border-primary/20"
+                    !isRead && "bg-primary/5 border-primary/20"
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -148,7 +221,7 @@ export default function Notifications() {
                       <div className="flex items-start justify-between gap-2">
                         <h3 className={cn(
                           "font-medium",
-                          !notification.read && "text-primary"
+                          !isRead && "text-primary"
                         )}>
                           {notification.title}
                         </h3>
@@ -162,7 +235,7 @@ export default function Notifications() {
                     </div>
                     
                     {/* Unread indicator */}
-                    {!notification.read && (
+                    {!isRead && (
                       <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />
                     )}
                   </div>

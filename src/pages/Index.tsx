@@ -128,7 +128,10 @@ export default function Index() {
           
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{' '}
-            <span className="text-primary">Visit your nearest branch to register.</span>
+            <Link to="/auth/register" className="text-primary hover:underline">
+              Register online
+            </Link>
+            {' '}or visit your nearest branch.
           </p>
         </motion.div>
       </div>

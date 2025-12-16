@@ -9,6 +9,7 @@ import "@/lib/i18n";
 import Index from "./pages/Index";
 import Login from "./pages/auth/Login";
 import RequestReset from "./pages/auth/RequestReset";
+import SelfRegister from "./pages/auth/SelfRegister";
 import Dashboard from "./pages/client/Dashboard";
 import Accounts from "./pages/client/Accounts";
 import Transactions from "./pages/client/Transactions";
@@ -41,6 +42,7 @@ const App = () => (
           {/* Auth Routes */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/request-reset" element={<RequestReset />} />
+          <Route path="/auth/register" element={<SelfRegister />} />
           
           {/* Member Routes */}
           <Route path="/client/dashboard" element={<Dashboard />} />

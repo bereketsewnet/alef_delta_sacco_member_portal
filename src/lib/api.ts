@@ -960,7 +960,44 @@ import type {
         });
         
         if (!response.ok) {
-          throw new Error('Upload failed');
+          const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
+          throw new Error(errorData.message || `Upload failed: ${response.status} ${response.statusText}`);
+        }
+        
+        return response.json();
+      },
+    },
+    
+    /**
+     * Public API methods (no authentication required)
+     */
+    public: {
+      /**
+       * Create a member registration request (self-registration)
+       * POST /api/member-registration-requests
+       */
+      createRegistrationRequest: async (data: any): Promise<any> => {
+        const response = await fetch(`${API_BASE}/member-registration-requests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: 'Registration request failed' }));
+          
+          // Extract detailed validation errors
+          if (error.details && Array.isArray(error.details)) {
+            const validationErrors = error.details.map((detail: any) => {
+              const field = detail.path?.join('.') || detail.context?.label || 'field';
+              return `${field}: ${detail.message}`;
+            }).join(', ');
+            throw new Error(`Validation failed: ${validationErrors}`);
+          }
+          
+          throw new Error(error.message || `Registration request failed: ${response.status} ${response.statusText}`);
         }
         
         return response.json();

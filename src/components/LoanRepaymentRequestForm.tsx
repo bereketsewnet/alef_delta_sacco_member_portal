@@ -20,9 +20,9 @@ const loanRepaymentRequestSchema = z.object({
   loan_id: z.string().min(1, 'Please select a loan'),
   amount: z.number().min(1, 'Amount must be greater than 0'),
   payment_method: z.string().min(1, 'Please select a payment method'),
-  receipt_number: z.string().optional(),
+  bank_receipt_no: z.string().min(1, 'Bank receipt number is required'),
   notes: z.string().optional(),
-  receipt: z.instanceof(File).optional(),
+  bank_receipt: z.instanceof(File),
 });
 
 type LoanRepaymentRequestFormData = z.infer<typeof loanRepaymentRequestSchema>;
@@ -67,18 +67,18 @@ export function LoanRepaymentRequestForm({
       loan_id: '',
       amount: 0,
       payment_method: 'CASH',
-      receipt_number: '',
+      bank_receipt_no: '',
       notes: '',
     },
   });
 
-  const receiptFile = watch('receipt');
+  const receiptFile = watch('bank_receipt');
 
   // Handle receipt file change
   const handleReceiptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setValue('receipt', file);
+      setValue('bank_receipt', file);
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -95,9 +95,9 @@ export function LoanRepaymentRequestForm({
         loan_id: data.loan_id,
         amount: data.amount,
         payment_method: data.payment_method,
-        receipt_number: data.receipt_number || undefined,
+        bank_receipt_no: data.bank_receipt_no,
         notes: data.notes || undefined,
-        receipt: data.receipt,
+        bank_receipt: data.bank_receipt,
       });
       
       toast({
@@ -237,21 +237,21 @@ export function LoanRepaymentRequestForm({
                   
                   {/* Receipt Number */}
                   <div className="space-y-2">
-                    <Label htmlFor="receipt_number">Receipt Number</Label>
+                    <Label htmlFor="bank_receipt_no">Bank Receipt Number *</Label>
                     <Input
-                      id="receipt_number"
+                      id="bank_receipt_no"
                       type="text"
-                      placeholder="e.g., REC-2024-001"
-                      {...register('receipt_number')}
+                      placeholder="e.g., BANK-REC-2024-001"
+                      {...register('bank_receipt_no')}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Optional: Enter the receipt number from your payment
-                    </p>
+                    {errors.bank_receipt_no && (
+                      <p className="text-sm text-destructive">{errors.bank_receipt_no.message}</p>
+                    )}
                   </div>
                   
                   {/* Receipt Upload */}
                   <div className="space-y-2">
-                    <Label htmlFor="receipt">Payment Receipt/Screenshot</Label>
+                    <Label htmlFor="receipt">Bank Receipt Photo *</Label>
                     <div className="space-y-2">
                       <label
                         htmlFor="receipt"
@@ -269,7 +269,7 @@ export function LoanRepaymentRequestForm({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setReceiptPreview(null);
-                                setValue('receipt', undefined);
+                                setValue('bank_receipt', undefined as any);
                               }}
                               className="absolute top-2 right-2 p-1 bg-background/80 rounded-full hover:bg-background"
                             >
@@ -296,9 +296,9 @@ export function LoanRepaymentRequestForm({
                         />
                       </label>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Upload a screenshot or photo of your payment receipt
-                    </p>
+                    {errors.bank_receipt && (
+                      <p className="text-sm text-destructive">Bank receipt photo is required</p>
+                    )}
                   </div>
                   
                   {/* Notes */}

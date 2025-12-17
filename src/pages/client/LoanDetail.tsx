@@ -6,7 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { StatusBadge } from '@/components/StatusBadge';
-import { RequestForm } from '@/components/RequestForm';
+import { LoanRepaymentRequestForm } from '@/components/LoanRepaymentRequestForm';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -236,12 +236,14 @@ export default function LoanDetail() {
       </main>
 
       {/* Repayment Form */}
-      <RequestForm
+      <LoanRepaymentRequestForm
         isOpen={showRepaymentForm}
         onClose={() => setShowRepaymentForm(false)}
-        type="REPAYMENT"
-        maxAmount={outstandingBalance}
-        loanId={loanId}
+        onSuccess={() => {
+          // Member portal request modal will create the repayment request.
+          // After success, refetch the loan detail so outstanding/next payment can update if needed.
+          // React Query will refetch automatically when user navigates, but we can refresh immediately.
+        }}
       />
 
       <BottomNav />

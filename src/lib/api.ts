@@ -770,9 +770,9 @@ import type {
         loan_id: string;
         amount: number;
         payment_method?: string;
-        receipt_number?: string;
+        bank_receipt_no: string;
         notes?: string;
-        receipt?: File;
+        bank_receipt: File;
       }): Promise<any> => {
         const formData = new FormData();
         formData.append('loan_id', payload.loan_id);
@@ -780,15 +780,11 @@ import type {
         if (payload.payment_method) {
           formData.append('payment_method', payload.payment_method);
         }
-        if (payload.receipt_number) {
-          formData.append('receipt_number', payload.receipt_number);
-        }
+        formData.append('bank_receipt_no', payload.bank_receipt_no);
         if (payload.notes) {
           formData.append('notes', payload.notes);
         }
-        if (payload.receipt) {
-          formData.append('receipt', payload.receipt);
-        }
+        formData.append('bank_receipt', payload.bank_receipt);
         
         const token = getToken();
         const response = await fetch(`${API_BASE}/loan-repayment-requests`, {
@@ -899,45 +895,7 @@ import type {
         }
       },
       
-      /**
-       * Get notifications
-       * Note: This endpoint may not exist yet in backend
-       */
-      getNotifications: async (): Promise<Notification[]> => {
-        try {
-          const response = await apiFetch<{ data: Notification[] }>('/client/notifications');
-          return response.data;
-        } catch (error) {
-          // Silently fail - endpoint not implemented yet
-          return [];
-        }
-      },
-      
-      /**
-       * Mark notification as read
-       */
-      markNotificationRead: async (id: string): Promise<void> => {
-        try {
-          await apiFetch(`/client/notifications/${id}/read`, {
-            method: 'PUT',
-          });
-        } catch (error) {
-          // Silently fail
-        }
-      },
-      
-      /**
-       * Mark all notifications as read
-       */
-      markAllNotificationsRead: async (): Promise<void> => {
-        try {
-          await apiFetch('/client/notifications/read-all', {
-            method: 'PUT',
-          });
-        } catch (error) {
-          // Silently fail
-        }
-      },
+      // NOTE: notifications helpers already exist earlier in this object (getNotifications/markNotificationAsRead/etc.)
     },
     
     uploads: {

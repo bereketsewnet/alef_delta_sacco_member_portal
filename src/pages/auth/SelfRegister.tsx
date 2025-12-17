@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, UserPlus, Upload, X, Plus, Trash2, Eye, EyeOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, UserPlus, Upload, X, Plus, Trash2, Eye, EyeOff, RefreshCw, CheckCircle2, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,39 +14,37 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/lib/i18n';
 
-// Schema for self-registration
-const registrationSchema = z.object({
-  // Basic Information
-  first_name: z.string().min(2, "First name must be at least 2 characters"),
-  middle_name: z.string().min(2, "Middle name must be at least 2 characters"),
-  last_name: z.string().min(2, "Last name must be at least 2 characters"),
-  phone_primary: z.string().regex(/^\+251\d{9}$/, "Phone must be in format +251XXXXXXXXX"),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  gender: z.enum(["M", "F"]),
-  marital_status: z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"]),
-  age: z.string().optional().or(z.literal("")),
-  family_size_female: z.string().optional().or(z.literal("")),
-  family_size_male: z.string().optional().or(z.literal("")),
-  educational_level: z.enum(["PRIMARY", "SECONDARY", "DIPLOMA", "DEGREE", "MASTERS", "PHD", "NONE"]).optional(),
-  occupation: z.string().optional().or(z.literal("")),
-  work_experience_years: z.string().optional().or(z.literal("")),
-  // Address
-  address_subcity: z.string().min(2, "Subcity is required"),
-  address_woreda: z.string().min(2, "Woreda is required"),
-  address_kebele: z.string().optional().or(z.literal("")),
-  address_area_name: z.string().optional().or(z.literal("")),
-  address_house_no: z.string().min(1, "House number is required"),
-  national_id_number: z.string().optional().or(z.literal("")),
-  shares_requested: z.string().optional().or(z.literal("")),
-  terms_accepted: z.boolean().refine(val => val === true, "You must accept the terms and conditions"),
-  member_type: z.enum(["GOV_EMP", "TRADER", "NGO", "FARMER", "SELF"]),
-  monthly_income: z.string().min(1, "Monthly income is required"),
-  tin_number: z.string().optional(),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-type RegistrationFormData = z.infer<typeof registrationSchema>;
+// Schema will be created inside component to access translations
+type RegistrationFormData = {
+  first_name: string;
+  middle_name: string;
+  last_name: string;
+  phone_primary: string;
+  email?: string;
+  gender: "M" | "F";
+  marital_status: "SINGLE" | "MARRIED" | "DIVORCED" | "WIDOWED";
+  age?: string;
+  family_size_female?: string;
+  family_size_male?: string;
+  educational_level?: "PRIMARY" | "SECONDARY" | "DIPLOMA" | "DEGREE" | "MASTERS" | "PHD" | "NONE";
+  occupation?: string;
+  work_experience_years?: string;
+  address_subcity: string;
+  address_woreda: string;
+  address_kebele?: string;
+  address_area_name?: string;
+  address_house_no: string;
+  national_id_number?: string;
+  shares_requested?: string;
+  terms_accepted: boolean;
+  member_type: "GOV_EMP" | "TRADER" | "NGO" | "FARMER" | "SELF";
+  monthly_income: string;
+  tin_number?: string;
+  password: string;
+};
 
 interface EmergencyContact {
   full_name: string;
@@ -76,9 +74,23 @@ interface Document {
 
 export default function SelfRegister() {
   const navigate = useNavigate();
+  const { t, i18n: i18nInstance } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [currentLang, setCurrentLang] = useState(i18nInstance.language || 'en');
+  
+  const toggleLanguage = () => {
+    const newLang = currentLang === 'en' ? 'am' : 'en';
+    i18nInstance.changeLanguage(newLang);
+    setCurrentLang(newLang);
+  };
+  const [ageInput, setAgeInput] = useState<string>("");
+  const [familySizeFemaleInput, setFamilySizeFemaleInput] = useState<string>("0");
+  const [familySizeMaleInput, setFamilySizeMaleInput] = useState<string>("0");
+  const [workExperienceInput, setWorkExperienceInput] = useState<string>("");
+  const [monthlyIncomeInput, setMonthlyIncomeInput] = useState<string>("");
+  const [sharesRequestedInput, setSharesRequestedInput] = useState<string>("0");
   
   // Emergency contacts state
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
@@ -122,6 +134,37 @@ export default function SelfRegister() {
   const [filePreviews, setFilePreviews] = useState<{
     [key: string]: string[];
   }>({});
+
+  // Create schema with translations (inside component to access t function)
+  const registrationSchema = z.object({
+    // Basic Information
+    first_name: z.string().min(2, t('validation.required')),
+    middle_name: z.string().min(2, t('validation.required')),
+    last_name: z.string().min(2, t('validation.required')),
+    phone_primary: z.string().regex(/^\+251\d{9}$/, t('validation.invalid_phone')),
+    email: z.string().email(t('validation.invalid_email')).optional().or(z.literal("")),
+    gender: z.enum(["M", "F"]),
+    marital_status: z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"]),
+    age: z.string().optional().or(z.literal("")),
+    family_size_female: z.string().optional().or(z.literal("")),
+    family_size_male: z.string().optional().or(z.literal("")),
+    educational_level: z.enum(["PRIMARY", "SECONDARY", "DIPLOMA", "DEGREE", "MASTERS", "PHD", "NONE"]).optional(),
+    occupation: z.string().optional().or(z.literal("")),
+    work_experience_years: z.string().optional().or(z.literal("")),
+    // Address
+    address_subcity: z.string().min(2, t('validation.required')),
+    address_woreda: z.string().min(2, t('validation.required')),
+    address_kebele: z.string().optional().or(z.literal("")),
+    address_area_name: z.string().optional().or(z.literal("")),
+    address_house_no: z.string().min(1, t('validation.required')),
+    national_id_number: z.string().optional().or(z.literal("")),
+    shares_requested: z.string().optional().or(z.literal("")),
+    terms_accepted: z.boolean().refine(val => val === true, t('validation.required')),
+    member_type: z.enum(["GOV_EMP", "TRADER", "NGO", "FARMER", "SELF"]),
+    monthly_income: z.string().min(1, t('validation.required')),
+    tin_number: z.string().optional(),
+    password: z.string().min(6, t('validation.password_min_length')),
+  });
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
@@ -221,8 +264,8 @@ export default function SelfRegister() {
     });
     
     toast({
-      title: "Document removed",
-      description: "The document has been removed. You can upload a new one.",
+      title: t('registration.messages.document_removed'),
+      description: t('registration.messages.document_removed_desc'),
     });
   };
 
@@ -263,14 +306,14 @@ export default function SelfRegister() {
       reader.readAsDataURL(file);
 
       toast({
-        title: "ID Card uploaded",
-        description: "ID Card uploaded successfully",
+        title: t('registration.messages.id_card_uploaded'),
+        description: t('registration.messages.id_card_uploaded_desc'),
       });
     } catch (error: any) {
       console.error('ID Card upload error:', error);
       toast({
-        title: "Upload failed",
-        description: error.message || "Failed to upload ID Card. Please try again.",
+        title: t('registration.messages.upload_failed'),
+        description: error.message || t('registration.messages.upload_failed_id_card'),
         variant: "destructive",
       });
     }
@@ -333,14 +376,14 @@ export default function SelfRegister() {
       }));
 
       toast({
-        title: "File uploaded",
-        description: `${files.length} file(s) uploaded successfully`,
+        title: t('registration.messages.file_uploaded'),
+        description: t('registration.messages.file_uploaded_desc', { count: files.length }),
       });
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
-        title: "Upload failed",
-        description: error.message || "Failed to upload file. Please try again.",
+        title: t('registration.messages.upload_failed'),
+        description: error.message || t('registration.messages.upload_failed_file'),
         variant: "destructive",
       });
     }
@@ -350,8 +393,8 @@ export default function SelfRegister() {
   const addEmergencyContact = () => {
     if (!emergencyContactForm.full_name || !emergencyContactForm.phone_number) {
       toast({
-        title: "Validation Error",
-        description: "Full name and phone number are required for emergency contact",
+        title: t('error'),
+        description: t('registration.fields.full_name') + ' ' + t('registration.fields.phone_number') + ' ' + t('validation.required'),
         variant: "destructive",
       });
       return;
@@ -376,8 +419,8 @@ export default function SelfRegister() {
   const addBeneficiary = () => {
     if (!beneficiaryForm.full_name || !beneficiaryForm.phone) {
       toast({
-        title: "Validation Error",
-        description: "Full name and phone are required for beneficiary",
+        title: t('error'),
+        description: t('registration.fields.full_name') + ' ' + t('registration.fields.phone_number') + ' ' + t('validation.required'),
         variant: "destructive",
       });
       return;
@@ -452,11 +495,11 @@ export default function SelfRegister() {
 
       setSubmitted(true);
       toast({
-        title: "Registration Request Submitted",
-        description: "Your registration request has been submitted successfully. You will be notified once it's approved.",
+        title: t('registration.submitted_title'),
+        description: t('registration.submitted_desc'),
       });
     } catch (error: any) {
-      let errorMessage = "Failed to submit registration request.";
+      let errorMessage = t('registration.messages.submit_failed');
       
       // Try to extract detailed error message
       if (error.response?.data) {
@@ -466,7 +509,7 @@ export default function SelfRegister() {
             const field = detail.path?.join('.') || detail.context?.label || 'field';
             return `${field}: ${detail.message}`;
           }).join(', ');
-          errorMessage = `Validation failed: ${validationErrors}`;
+          errorMessage = t('registration.messages.validation_failed', { errors: validationErrors });
         } else if (errorData.message) {
           errorMessage = errorData.message;
         }
@@ -476,7 +519,7 @@ export default function SelfRegister() {
       
       console.error('Registration error:', error);
       toast({
-        title: "Registration Failed",
+        title: t('error'),
         description: errorMessage,
         variant: "destructive",
       });
@@ -496,16 +539,16 @@ export default function SelfRegister() {
           <Card>
             <CardContent className="pt-6 text-center">
               <CheckCircle2 className="h-16 w-16 text-success mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Registration Request Submitted</h2>
+              <h2 className="text-2xl font-bold mb-2">{t('registration.submitted_title')}</h2>
               <p className="text-muted-foreground mb-6">
-                Your registration request has been submitted successfully. A staff member will review your application and you will be notified once it's approved.
+                {t('registration.submitted_desc')}
               </p>
               <div className="flex gap-4">
                 <Button onClick={() => navigate('/auth/login')} className="flex-1">
-                  Go to Login
+                  {t('registration.go_to_login')}
                 </Button>
                 <Button onClick={() => { setSubmitted(false); form.reset(); }} variant="outline" className="flex-1">
-                  Submit Another
+                  {t('registration.submit_another')}
                 </Button>
               </div>
             </CardContent>
@@ -523,10 +566,19 @@ export default function SelfRegister() {
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-xl font-bold">Member Self-Registration</h1>
-            <p className="text-sm text-muted-foreground">Fill out the form to request membership</p>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold">{t('registration.title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('registration.subtitle')}</p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleLanguage}
+            className="gap-2"
+          >
+            <Languages className="h-4 w-4" />
+            {currentLang === 'en' ? 'አማርኛ' : 'English'}
+          </Button>
         </div>
       </div>
 
@@ -537,8 +589,8 @@ export default function SelfRegister() {
             {/* Basic Information */}
             <Card>
               <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-                <CardDescription>Enter your personal details</CardDescription>
+                <CardTitle>{t('registration.personal_info')}</CardTitle>
+                <CardDescription>{t('registration.personal_info_desc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -547,7 +599,7 @@ export default function SelfRegister() {
                     name="first_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>First Name *</FormLabel>
+                        <FormLabel>{t('registration.fields.first_name')}</FormLabel>
                         <FormControl>
                           <Input placeholder="Abebe" {...field} />
                         </FormControl>
@@ -560,7 +612,7 @@ export default function SelfRegister() {
                     name="middle_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Middle Name *</FormLabel>
+                        <FormLabel>{t('registration.fields.middle_name')}</FormLabel>
                         <FormControl>
                           <Input placeholder="Kebede" {...field} />
                         </FormControl>
@@ -573,7 +625,7 @@ export default function SelfRegister() {
                     name="last_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Last Name *</FormLabel>
+                        <FormLabel>{t('registration.fields.last_name')}</FormLabel>
                         <FormControl>
                           <Input placeholder="Tesfaye" {...field} />
                         </FormControl>
@@ -589,16 +641,16 @@ export default function SelfRegister() {
                     name="gender"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Gender *</FormLabel>
+                        <FormLabel>{t('registration.fields.gender')}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select gender" />
+                              <SelectValue placeholder={t('registration.fields.gender')} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="M">Male</SelectItem>
-                            <SelectItem value="F">Female</SelectItem>
+                            <SelectItem value="M">{t('registration.genders.M')}</SelectItem>
+                            <SelectItem value="F">{t('registration.genders.F')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -610,9 +662,33 @@ export default function SelfRegister() {
                     name="age"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Age</FormLabel>
+                        <FormLabel>{t('registration.fields.age')}</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="25" {...field} />
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="25"
+                            value={ageInput}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || /^\d*$/.test(value)) {
+                                setAgeInput(value);
+                                if (value === "") {
+                                  form.setValue("age", "", { shouldValidate: false });
+                                } else {
+                                  const numValue = parseInt(value);
+                                  if (!isNaN(numValue)) {
+                                    form.setValue("age", value, { shouldValidate: true });
+                                  }
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (ageInput && !isNaN(parseInt(ageInput))) {
+                                form.setValue("age", ageInput, { shouldValidate: true });
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -626,18 +702,18 @@ export default function SelfRegister() {
                     name="marital_status"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Marital Status *</FormLabel>
+                        <FormLabel>{t('registration.fields.marital_status')}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
+                              <SelectValue placeholder={t('registration.fields.marital_status')} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="SINGLE">Single</SelectItem>
-                            <SelectItem value="MARRIED">Married</SelectItem>
-                            <SelectItem value="DIVORCED">Divorced</SelectItem>
-                            <SelectItem value="WIDOWED">Widowed</SelectItem>
+                            <SelectItem value="SINGLE">{t('registration.marital_statuses.SINGLE')}</SelectItem>
+                            <SelectItem value="MARRIED">{t('registration.marital_statuses.MARRIED')}</SelectItem>
+                            <SelectItem value="DIVORCED">{t('registration.marital_statuses.DIVORCED')}</SelectItem>
+                            <SelectItem value="WIDOWED">{t('registration.marital_statuses.WIDOWED')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -649,21 +725,21 @@ export default function SelfRegister() {
                     name="educational_level"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Educational Level</FormLabel>
+                        <FormLabel>{t('registration.fields.educational_level')}</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select level" />
+                              <SelectValue placeholder={t('registration.fields.educational_level')} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="PRIMARY">Primary</SelectItem>
-                            <SelectItem value="SECONDARY">Secondary</SelectItem>
-                            <SelectItem value="DIPLOMA">Diploma</SelectItem>
-                            <SelectItem value="DEGREE">Degree</SelectItem>
-                            <SelectItem value="MASTERS">Masters</SelectItem>
-                            <SelectItem value="PHD">PhD</SelectItem>
-                            <SelectItem value="NONE">None</SelectItem>
+                            <SelectItem value="PRIMARY">{t('registration.educational_levels.PRIMARY')}</SelectItem>
+                            <SelectItem value="SECONDARY">{t('registration.educational_levels.SECONDARY')}</SelectItem>
+                            <SelectItem value="DIPLOMA">{t('registration.educational_levels.DIPLOMA')}</SelectItem>
+                            <SelectItem value="DEGREE">{t('registration.educational_levels.DEGREE')}</SelectItem>
+                            <SelectItem value="MASTERS">{t('registration.educational_levels.MASTERS')}</SelectItem>
+                            <SelectItem value="PHD">{t('registration.educational_levels.PHD')}</SelectItem>
+                            <SelectItem value="NONE">{t('registration.educational_levels.NONE')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -678,9 +754,30 @@ export default function SelfRegister() {
                     name="family_size_female"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Family Size - Female</FormLabel>
+                        <FormLabel>{t('registration.fields.family_size_female')}</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={familySizeFemaleInput}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || /^\d*$/.test(value)) {
+                                setFamilySizeFemaleInput(value);
+                                if (value === "") {
+                                  form.setValue("family_size_female", "0", { shouldValidate: false });
+                                } else {
+                                  form.setValue("family_size_female", value, { shouldValidate: true });
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (familySizeFemaleInput && !isNaN(parseInt(familySizeFemaleInput))) {
+                                form.setValue("family_size_female", familySizeFemaleInput, { shouldValidate: true });
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -691,9 +788,30 @@ export default function SelfRegister() {
                     name="family_size_male"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Family Size - Male</FormLabel>
+                        <FormLabel>{t('registration.fields.family_size_male')}</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={familySizeMaleInput}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || /^\d*$/.test(value)) {
+                                setFamilySizeMaleInput(value);
+                                if (value === "") {
+                                  form.setValue("family_size_male", "0", { shouldValidate: false });
+                                } else {
+                                  form.setValue("family_size_male", value, { shouldValidate: true });
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (familySizeMaleInput && !isNaN(parseInt(familySizeMaleInput))) {
+                                form.setValue("family_size_male", familySizeMaleInput, { shouldValidate: true });
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -706,7 +824,7 @@ export default function SelfRegister() {
             {/* Contact Information */}
             <Card>
               <CardHeader>
-                <CardTitle>Contact Information</CardTitle>
+                <CardTitle>{t('registration.contact_info')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -715,11 +833,11 @@ export default function SelfRegister() {
                     name="phone_primary"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone Number *</FormLabel>
+                        <FormLabel>{t('registration.fields.phone_primary')}</FormLabel>
                         <FormControl>
                           <Input placeholder="+251911234567" {...field} />
                         </FormControl>
-                        <FormDescription>Format: +251XXXXXXXXX</FormDescription>
+                        <FormDescription>{t('registration.fields.phone_format')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -729,7 +847,7 @@ export default function SelfRegister() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>{t('registration.fields.email')}</FormLabel>
                         <FormControl>
                           <Input type="email" placeholder="member@example.com" {...field} />
                         </FormControl>
@@ -744,7 +862,7 @@ export default function SelfRegister() {
             {/* Address Information */}
             <Card>
               <CardHeader>
-                <CardTitle>Residential Address</CardTitle>
+                <CardTitle>{t('registration.address_info')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -753,7 +871,7 @@ export default function SelfRegister() {
                     name="address_subcity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Sub-City *</FormLabel>
+                        <FormLabel>{t('registration.fields.address_subcity')}</FormLabel>
                         <FormControl>
                           <Input placeholder="Arada" {...field} />
                         </FormControl>
@@ -766,7 +884,7 @@ export default function SelfRegister() {
                     name="address_woreda"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Woreda *</FormLabel>
+                        <FormLabel>{t('registration.fields.address_woreda')}</FormLabel>
                         <FormControl>
                           <Input placeholder="Woreda 05" {...field} />
                         </FormControl>
@@ -781,7 +899,7 @@ export default function SelfRegister() {
                     name="address_kebele"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Kebele</FormLabel>
+                        <FormLabel>{t('registration.fields.address_kebele')}</FormLabel>
                         <FormControl>
                           <Input placeholder="Kebele" {...field} />
                         </FormControl>
@@ -794,7 +912,7 @@ export default function SelfRegister() {
                     name="address_area_name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Specific Location / Area Name</FormLabel>
+                        <FormLabel>{t('registration.fields.address_area_name')}</FormLabel>
                         <FormControl>
                           <Input placeholder="Area name" {...field} />
                         </FormControl>
@@ -809,7 +927,7 @@ export default function SelfRegister() {
                     name="address_house_no"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>House Number *</FormLabel>
+                        <FormLabel>{t('registration.fields.address_house_no')}</FormLabel>
                         <FormControl>
                           <Input placeholder="H-123" {...field} />
                         </FormControl>
@@ -822,7 +940,7 @@ export default function SelfRegister() {
                     name="national_id_number"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>National ID Card Number</FormLabel>
+                        <FormLabel>{t('registration.fields.national_id_number')}</FormLabel>
                         <FormControl>
                           <Input placeholder="ID Number" {...field} />
                         </FormControl>
@@ -837,7 +955,7 @@ export default function SelfRegister() {
             {/* Financial Information */}
             <Card>
               <CardHeader>
-                <CardTitle>Financial Information</CardTitle>
+                <CardTitle>{t('registration.financial_info')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -846,19 +964,19 @@ export default function SelfRegister() {
                     name="member_type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Type of Occupation *</FormLabel>
+                        <FormLabel>{t('registration.fields.member_type')}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
+                              <SelectValue placeholder={t('registration.fields.member_type')} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="GOV_EMP">Government Employee</SelectItem>
-                            <SelectItem value="TRADER">Trader</SelectItem>
-                            <SelectItem value="NGO">NGO Employee</SelectItem>
-                            <SelectItem value="FARMER">Farmer</SelectItem>
-                            <SelectItem value="SELF">Self Employed</SelectItem>
+                            <SelectItem value="GOV_EMP">{t('registration.member_types.GOV_EMP')}</SelectItem>
+                            <SelectItem value="TRADER">{t('registration.member_types.TRADER')}</SelectItem>
+                            <SelectItem value="NGO">{t('registration.member_types.NGO')}</SelectItem>
+                            <SelectItem value="FARMER">{t('registration.member_types.FARMER')}</SelectItem>
+                            <SelectItem value="SELF">{t('registration.member_types.SELF')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -870,9 +988,30 @@ export default function SelfRegister() {
                     name="monthly_income"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Monthly Income (ETB) *</FormLabel>
+                        <FormLabel>{t('registration.fields.monthly_income')}</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="25000" {...field} />
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="25000"
+                            value={monthlyIncomeInput}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || /^\d*$/.test(value)) {
+                                setMonthlyIncomeInput(value);
+                                if (value === "") {
+                                  form.setValue("monthly_income", "", { shouldValidate: false });
+                                } else {
+                                  form.setValue("monthly_income", value, { shouldValidate: true });
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (monthlyIncomeInput && !isNaN(parseInt(monthlyIncomeInput))) {
+                                form.setValue("monthly_income", monthlyIncomeInput, { shouldValidate: true });
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -886,11 +1025,11 @@ export default function SelfRegister() {
                     name="tin_number"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>TIN Number *</FormLabel>
+                        <FormLabel>{t('registration.fields.tin_number')}</FormLabel>
                         <FormControl>
                           <Input placeholder="TIN-123456789" {...field} />
                         </FormControl>
-                        <FormDescription>Required for traders</FormDescription>
+                        <FormDescription>{t('registration.fields.tin_desc')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -903,7 +1042,7 @@ export default function SelfRegister() {
                     name="occupation"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Type of Occupation</FormLabel>
+                        <FormLabel>{t('registration.fields.occupation')}</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g., Teacher, Trader" {...field} />
                         </FormControl>
@@ -916,9 +1055,30 @@ export default function SelfRegister() {
                     name="work_experience_years"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Work Experience (Years)</FormLabel>
+                        <FormLabel>{t('registration.fields.work_experience_years')}</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="5" {...field} />
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="5"
+                            value={workExperienceInput}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || /^\d*$/.test(value)) {
+                                setWorkExperienceInput(value);
+                                if (value === "") {
+                                  form.setValue("work_experience_years", "", { shouldValidate: false });
+                                } else {
+                                  form.setValue("work_experience_years", value, { shouldValidate: true });
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (workExperienceInput && !isNaN(parseInt(workExperienceInput))) {
+                                form.setValue("work_experience_years", workExperienceInput, { shouldValidate: true });
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -931,9 +1091,30 @@ export default function SelfRegister() {
                   name="shares_requested"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Number of Shares Requested</FormLabel>
+                      <FormLabel>{t('registration.fields.shares_requested')}</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="0" {...field} />
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="0"
+                          value={sharesRequestedInput}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "" || /^\d*$/.test(value)) {
+                              setSharesRequestedInput(value);
+                              if (value === "") {
+                                form.setValue("shares_requested", "0", { shouldValidate: false });
+                              } else {
+                                form.setValue("shares_requested", value, { shouldValidate: true });
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            if (sharesRequestedInput && !isNaN(parseInt(sharesRequestedInput))) {
+                              form.setValue("shares_requested", sharesRequestedInput, { shouldValidate: true });
+                            }
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -945,13 +1126,13 @@ export default function SelfRegister() {
             {/* Emergency Contacts */}
             <Card>
               <CardHeader>
-                <CardTitle>Emergency Contact Person</CardTitle>
-                <CardDescription>Add one or more emergency contacts</CardDescription>
+                <CardTitle>{t('registration.emergency_contact')}</CardTitle>
+                <CardDescription>{t('registration.emergency_contact_desc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Full Name</Label>
+                    <Label>{t('registration.fields.full_name')}</Label>
                     <Input
                       placeholder="Full name"
                       value={emergencyContactForm.full_name}
@@ -959,7 +1140,7 @@ export default function SelfRegister() {
                     />
                   </div>
                   <div>
-                    <Label>Phone Number</Label>
+                    <Label>{t('registration.fields.phone_number')}</Label>
                     <Input
                       placeholder="+251911234567"
                       value={emergencyContactForm.phone_number}
@@ -969,7 +1150,7 @@ export default function SelfRegister() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Sub-City</Label>
+                    <Label>{t('registration.fields.subcity')}</Label>
                     <Input
                       placeholder="Subcity"
                       value={emergencyContactForm.subcity}
@@ -977,7 +1158,7 @@ export default function SelfRegister() {
                     />
                   </div>
                   <div>
-                    <Label>Woreda</Label>
+                    <Label>{t('registration.fields.woreda')}</Label>
                     <Input
                       placeholder="Woreda"
                       value={emergencyContactForm.woreda}
@@ -987,7 +1168,7 @@ export default function SelfRegister() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label>Kebele</Label>
+                    <Label>{t('registration.fields.kebele')}</Label>
                     <Input
                       placeholder="Kebele"
                       value={emergencyContactForm.kebele}
@@ -995,7 +1176,7 @@ export default function SelfRegister() {
                     />
                   </div>
                   <div>
-                    <Label>House Number</Label>
+                    <Label>{t('registration.fields.house_number')}</Label>
                     <Input
                       placeholder="House number"
                       value={emergencyContactForm.house_number}
@@ -1003,7 +1184,7 @@ export default function SelfRegister() {
                     />
                   </div>
                   <div>
-                    <Label>Relationship</Label>
+                    <Label>{t('registration.fields.relationship')}</Label>
                     <Input
                       placeholder="e.g., Spouse, Parent"
                       value={emergencyContactForm.relationship}
@@ -1013,7 +1194,7 @@ export default function SelfRegister() {
                 </div>
                 <Button type="button" variant="outline" onClick={addEmergencyContact} className="w-full">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Emergency Contact
+                  {t('registration.add_emergency_contact')}
                 </Button>
 
                 {emergencyContacts.length > 0 && (
@@ -1042,13 +1223,13 @@ export default function SelfRegister() {
             {/* Beneficiaries */}
             <Card>
               <CardHeader>
-                <CardTitle>Beneficiary / Heir Information</CardTitle>
-                <CardDescription>Add one or more beneficiaries</CardDescription>
+                <CardTitle>{t('registration.beneficiary')}</CardTitle>
+                <CardDescription>{t('registration.beneficiary_desc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label>Full Name</Label>
+                    <Label>{t('registration.fields.full_name')}</Label>
                     <Input
                       placeholder="Full name"
                       value={beneficiaryForm.full_name}
@@ -1056,7 +1237,7 @@ export default function SelfRegister() {
                     />
                   </div>
                   <div>
-                    <Label>Relationship</Label>
+                    <Label>{t('registration.fields.relationship')}</Label>
                     <Input
                       placeholder="e.g., Spouse, Child"
                       value={beneficiaryForm.relationship}
@@ -1064,7 +1245,7 @@ export default function SelfRegister() {
                     />
                   </div>
                   <div>
-                    <Label>Phone</Label>
+                    <Label>{t('registration.fields.phone_number')}</Label>
                     <Input
                       placeholder="+251911234567"
                       value={beneficiaryForm.phone}
@@ -1074,7 +1255,7 @@ export default function SelfRegister() {
                 </div>
                 <Button type="button" variant="outline" onClick={addBeneficiary} className="w-full">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Beneficiary
+                  {t('registration.add_beneficiary')}
                 </Button>
 
                 {beneficiaries.length > 0 && (
@@ -1103,13 +1284,13 @@ export default function SelfRegister() {
             {/* Documents */}
             <Card>
               <CardHeader>
-                <CardTitle>Documents</CardTitle>
-                <CardDescription>Upload required documents</CardDescription>
+                <CardTitle>{t('registration.documents')}</CardTitle>
+                <CardDescription>{t('registration.documents_desc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* ID Card */}
                 <div>
-                  <Label className="mb-2 block">ID Card - Front *</Label>
+                  <Label className="mb-2 block">{t('registration.fields.id_card_front')}</Label>
                   <div className="flex gap-2 mb-2">
                     <input
                       ref={idCardFrontRef}
@@ -1125,7 +1306,7 @@ export default function SelfRegister() {
                       onClick={() => idCardFrontRef.current?.click()}
                     >
                       <Upload className="h-4 w-4 mr-1" />
-                      Upload Front
+                      {t('registration.fields.upload_front')}
                     </Button>
                   </div>
                   {(idCardFrontUrl || idCardPreviews.front) && (
@@ -1155,7 +1336,7 @@ export default function SelfRegister() {
 
                 {/* Kebele ID */}
                 <div>
-                  <Label className="mb-2 block">Kebele ID - Front & Back *</Label>
+                  <Label className="mb-2 block">{t('registration.fields.kebele_id')}</Label>
                   <div className="flex gap-2 mb-2">
                     <input
                       ref={kebeleIdFrontRef}
@@ -1180,7 +1361,7 @@ export default function SelfRegister() {
                       onClick={() => kebeleIdFrontRef.current?.click()}
                     >
                       <Upload className="h-4 w-4 mr-1" />
-                      Upload Front
+                      {t('registration.fields.upload_front')}
                     </Button>
                     <Button
                       type="button"
@@ -1189,7 +1370,7 @@ export default function SelfRegister() {
                       onClick={() => kebeleIdBackRef.current?.click()}
                     >
                       <Upload className="h-4 w-4 mr-1" />
-                      Upload Back
+                      {t('registration.fields.upload_back')}
                     </Button>
                   </div>
                   {(() => {
@@ -1359,19 +1540,19 @@ export default function SelfRegister() {
                   return (
                     <>
                       {/* Driver License */}
-                      {renderDocumentPreview('DRIVER_LICENSE', 'front', 'Driver License (Optional)')}
+                      {renderDocumentPreview('DRIVER_LICENSE', 'front', t('registration.fields.driver_license'))}
 
                       {/* Passport */}
-                      {renderDocumentPreview('PASSPORT', 'front', 'Passport (Optional)')}
+                      {renderDocumentPreview('PASSPORT', 'front', t('registration.fields.passport'))}
 
                       {/* Worker ID */}
-                      {renderDocumentPreview('WORKER_ID', 'front', 'Worker ID (Optional)')}
+                      {renderDocumentPreview('WORKER_ID', 'front', t('registration.fields.worker_id'))}
 
                       {/* Registration Receipts */}
                       <div>
-                        <Label className="mb-2 block">Registration Payment Receipts (Optional)</Label>
+                        <Label className="mb-2 block">{t('registration.fields.registration_receipt')}</Label>
                         <p className="text-sm text-muted-foreground mb-2">
-                          Upload receipts for registration fee (1000 ETB) and share purchase (5 shares × 300 ETB = 1500 ETB)
+                          {t('registration.fields.registration_receipt_desc')}
                         </p>
                         <div className="flex gap-2 mb-2">
                           <input
@@ -1389,7 +1570,7 @@ export default function SelfRegister() {
                             onClick={() => registrationReceiptRef.current?.click()}
                           >
                             <Upload className="h-4 w-4 mr-1" />
-                            Upload Receipts
+                            {t('registration.fields.upload_receipts')}
                           </Button>
                         </div>
                         {(() => {
@@ -1439,8 +1620,8 @@ export default function SelfRegister() {
             {/* Password */}
             <Card>
               <CardHeader>
-                <CardTitle>Account Password</CardTitle>
-                <CardDescription>Set your initial password</CardDescription>
+                <CardTitle>{t('registration.account_password')}</CardTitle>
+                <CardDescription>{t('registration.account_password_desc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <FormField
@@ -1448,7 +1629,7 @@ export default function SelfRegister() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password *</FormLabel>
+                      <FormLabel>{t('registration.fields.password')}</FormLabel>
                       <FormControl>
                         <div className="flex gap-2">
                           <div className="relative flex-1">
@@ -1477,11 +1658,11 @@ export default function SelfRegister() {
                             onClick={handleGeneratePassword}
                           >
                             <RefreshCw className="h-4 w-4 mr-1" />
-                            Generate
+                            {t('registration.fields.generate')}
                           </Button>
                         </div>
                       </FormControl>
-                      <FormDescription>Min. 6 characters</FormDescription>
+                      <FormDescription>{t('registration.fields.password_min')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1492,14 +1673,12 @@ export default function SelfRegister() {
             {/* Terms and Conditions */}
             <Card>
               <CardHeader>
-                <CardTitle>Declaration</CardTitle>
+                <CardTitle>{t('registration.declaration')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="p-4 border rounded-lg bg-muted/50 mb-4">
                   <p className="text-sm">
-                    I, the undersigned applicant, hereby declare that I fully understand the objectives and activities 
-                    of the Cooperative Society and agree to comply with all the rules and regulations stipulated in 
-                    its bylaws. Accordingly, I respectfully request to be accepted as a member of the Cooperative Society.
+                    {t('registration.terms_text')}
                   </p>
                 </div>
                 <FormField
@@ -1517,7 +1696,7 @@ export default function SelfRegister() {
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel className="cursor-pointer">
-                          I accept the terms and conditions *
+                          {t('registration.accept_terms')}
                         </FormLabel>
                         <FormMessage />
                       </div>
@@ -1533,12 +1712,12 @@ export default function SelfRegister() {
                 {isSubmitting ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
+                    {t('registration.submitting')}
                   </>
                 ) : (
                   <>
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Submit Registration Request
+                    {t('registration.submit_request')}
                   </>
                 )}
               </Button>
@@ -1548,7 +1727,7 @@ export default function SelfRegister() {
                 onClick={() => navigate('/')}
                 className="flex-1"
               >
-                Cancel
+                {t('cancel')}
               </Button>
             </div>
           </form>

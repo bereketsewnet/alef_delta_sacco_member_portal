@@ -133,6 +133,12 @@ export default function Index() {
             </Link>
             {' '}or visit your nearest branch.
           </p>
+          
+          <Link to="/partner-registration" className="block mt-3">
+            <Button variant="outline" className="w-full h-12 text-base">
+              Partner Registration
+            </Button>
+          </Link>
         </motion.div>
       </div>
 

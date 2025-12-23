@@ -54,24 +54,60 @@ import type {
     return statusMap[workflowStatus] || 'PENDING';
   }
   
+  // Helper to clear auth and redirect to login
+  function clearAuthAndRedirect() {
+    // Clear all auth data from localStorage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('auth-storage'); // Zustand persist key
+    
+    // Redirect to login page (only if not already on auth pages)
+    const currentPath = window.location.pathname;
+    if (currentPath !== '/auth/login' && 
+        !currentPath.startsWith('/auth/') && 
+        currentPath !== '/' &&
+        currentPath !== '/partner-registration') {
+      window.location.href = '/auth/login';
+    }
+  }
+
   // Base fetch with auth
   async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const token = getToken();
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options?.headers,
-      },
-    });
-  
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || error.error?.message || 'Request failed');
+    
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
+          ...options?.headers,
+        },
+      });
+    
+      if (!response.ok) {
+        // Handle 401 Unauthorized - clear credentials and redirect
+        if (response.status === 401) {
+          clearAuthAndRedirect();
+          // Return a rejected promise with a silent error
+          const silentError = new Error('Unauthorized');
+          (silentError as any).silent = true; // Mark as silent to suppress console
+          return Promise.reject(silentError);
+        }
+        
+        const error = await response.json().catch(() => ({ message: 'Request failed' }));
+        throw new Error(error.message || error.error?.message || 'Request failed');
+      }
+    
+      return response.json();
+    } catch (error: any) {
+      // If it's a network error and we have a token, it might be auth-related
+      if (error.name === 'TypeError' && token) {
+        // Network error - could be CORS or connection issue, don't clear auth
+        throw error;
+      }
+      throw error;
     }
-  
-    return response.json();
   }
   
   // ============= MOCK DATA =============
@@ -746,6 +782,12 @@ import type {
         });
         
         if (!response.ok) {
+          if (response.status === 401) {
+            clearAuthAndRedirect();
+            const silentError = new Error('Unauthorized');
+            (silentError as any).silent = true;
+            throw silentError;
+          }
           const error = await response.json().catch(() => ({ message: 'Request failed' }));
           throw new Error(error.message || error.error?.message || 'Request failed');
         }
@@ -796,6 +838,12 @@ import type {
         });
         
         if (!response.ok) {
+          if (response.status === 401) {
+            clearAuthAndRedirect();
+            const silentError = new Error('Unauthorized');
+            (silentError as any).silent = true;
+            throw silentError;
+          }
           const error = await response.json().catch(() => ({ message: 'Request failed' }));
           throw new Error(error.message || error.error?.message || 'Request failed');
         }
@@ -918,6 +966,12 @@ import type {
         });
         
         if (!response.ok) {
+          if (response.status === 401) {
+            clearAuthAndRedirect();
+            const silentError = new Error('Unauthorized');
+            (silentError as any).silent = true;
+            throw silentError;
+          }
           const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
           throw new Error(errorData.message || `Upload failed: ${response.status} ${response.statusText}`);
         }
@@ -956,6 +1010,37 @@ import type {
           }
           
           throw new Error(error.message || `Registration request failed: ${response.status} ${response.statusText}`);
+        }
+        
+        return response.json();
+      },
+      
+      /**
+       * Create a partner request (partnership or sponsorship)
+       * POST /api/partner-requests
+       */
+      createPartnerRequest: async (data: any): Promise<any> => {
+        const response = await fetch(`${API_BASE}/partner-requests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: 'Partner request failed' }));
+          
+          // Extract detailed validation errors
+          if (error.details && Array.isArray(error.details)) {
+            const validationErrors = error.details.map((detail: any) => {
+              const field = detail.path?.join('.') || detail.context?.label || 'field';
+              return `${field}: ${detail.message}`;
+            }).join(', ');
+            throw new Error(`Validation failed: ${validationErrors}`);
+          }
+          
+          throw new Error(error.message || `Partner request failed: ${response.status} ${response.statusText}`);
         }
         
         return response.json();

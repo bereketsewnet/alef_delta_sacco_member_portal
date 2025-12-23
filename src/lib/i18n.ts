@@ -345,6 +345,49 @@ const resources = {
         submit_failed: 'Failed to submit registration request.',
         validation_failed: 'Validation failed: {{errors}}',
       },
+      
+      // Partner Registration
+      partner_registration: {
+        title: 'Corporate Registration',
+        subtitle: 'Fill out the form to request partnership or sponsorship',
+        form_title: 'Corporate Information',
+        form_desc: 'Enter your details to become a partner or sponsor',
+        need_help: 'Need Help?',
+        contact_desc: 'Contact our support team for any assistance with your request.',
+        contact_support: 'Contact Support',
+        submit_request: 'Submit Corporate Request',
+        submitting: 'Submitting...',
+        submitted_title: 'Corporate Request Submitted',
+        submitted_desc: 'Your corporate request has been submitted successfully. A staff member will review your application and contact you soon.',
+        go_to_home: 'Go to Home',
+        submit_another: 'Submit Another',
+        fields: {
+          name: 'Name *',
+          name_placeholder: 'Enter your full name',
+          company_name: 'Company Name',
+          company_name_placeholder: 'Enter company name (optional)',
+          phone: 'Phone Number *',
+          request_type: 'Request Type *',
+          sponsorship_type: 'Sponsorship Type *',
+          sponsorship_type_placeholder: 'Select sponsorship type',
+        },
+        request_types: {
+          PARTNERSHIP: 'Partnership',
+          SPONSORSHIP: 'Sponsorship',
+        },
+        sponsorship_types: {
+          PLATINUM: 'Platinum Sponsor',
+          GOLD: 'Gold Sponsor',
+          SILVER: 'Silver Sponsor',
+        },
+        validation: {
+          sponsorship_type_required: 'Sponsorship type is required when selecting Sponsorship',
+        },
+        messages: {
+          submit_failed: 'Failed to submit partner request.',
+          validation_failed: 'Validation failed: {{errors}}',
+        },
+      },
     },
   },
   am: {
@@ -513,6 +556,49 @@ const resources = {
         submit_failed: 'የምዝግብ ጥያቄ ማስገባት አልተሳካም።',
         validation_failed: 'ማረጋገጫ አልተሳካም: {{errors}}',
       },
+      
+      // Partner Registration
+      partner_registration: {
+        title: 'የኩባንያ መመዝገብ',
+        subtitle: 'የአጋርነት ወይም ድጋፍ ለመጠየቅ ቅጹን ይሙሉ',
+        form_title: 'የኩባንያ መረጃ',
+        form_desc: 'አጋር ወይም ድጋፍ ለመሆን ዝርዝሮችዎን ያስገቡ',
+        need_help: 'እርዳታ ይፈልጋሉ?',
+        contact_desc: 'ስለ ጥያቄዎ ማንኛውም እርዳታ የድጋፍ ቡድናችንን ያግኙ።',
+        contact_support: 'ድጋፍ ያግኙ',
+        submit_request: 'የኩባንያ ጥያቄ አስገባ',
+        submitting: 'በመጫን ላይ...',
+        submitted_title: 'የኩባንያ ጥያቄ ተገቢው ተገብቷል',
+        submitted_desc: 'የኩባንያ ጥያቄዎ በተሳካ ሁኔታ ተገቢው ተገብቷል። የሰራተኛ አባል ማመልከቻዎን ያገናዝባል እና በቅርቡ ያገናኝዎታል።',
+        go_to_home: 'ወደ መነሻ ሂድ',
+        submit_another: 'ሌላ አስገባ',
+        fields: {
+          name: 'ስም *',
+          name_placeholder: 'ሙሉ ስምዎን ያስገቡ',
+          company_name: 'የኩባንያ ስም',
+          company_name_placeholder: 'የኩባንያ ስም ያስገቡ (አማራጭ)',
+          phone: 'ስልክ ቁጥር *',
+          request_type: 'የጥያቄ አይነት *',
+          sponsorship_type: 'የድጋፍ አይነት *',
+          sponsorship_type_placeholder: 'የድጋፍ አይነት ይምረጡ',
+        },
+        request_types: {
+          PARTNERSHIP: 'አጋርነት',
+          SPONSORSHIP: 'ድጋፍ',
+        },
+        sponsorship_types: {
+          PLATINUM: 'የፕላቲነም ድጋፍ',
+          GOLD: 'የወርቅ ድጋፍ',
+          SILVER: 'የብር ድጋፍ',
+        },
+        validation: {
+          sponsorship_type_required: 'ድጋፍ ሲመርጡ የድጋፍ አይነት ያስፈልጋል',
+        },
+        messages: {
+          submit_failed: 'የኩባንያ ጥያቄ ማስገባት አልተሳካም።',
+          validation_failed: 'ማረጋገጫ አልተሳካም: {{errors}}',
+        },
+      },
     },
   },
 };
@@ -523,9 +609,21 @@ i18n
     resources,
     lng: 'en',
     fallbackLng: 'en',
+    defaultNS: 'translation',
+    ns: ['translation'],
     interpolation: {
       escapeValue: false,
     },
+    react: {
+      useSuspense: false,
+    },
+    returnEmptyString: false,
+    returnNull: false,
+    returnObjects: false,
+    keySeparator: '.',
+    nsSeparator: ':',
+    debug: false,
+    initImmediate: true,
   });
 
 export default i18n;

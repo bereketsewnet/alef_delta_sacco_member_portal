@@ -176,7 +176,7 @@ All colors MUST be HSL.
   
   .status-pending {
     @apply bg-warning-light text-warning border border-warning/20;
-  }
+    }
   
   .status-suspended {
     @apply bg-destructive-light text-destructive border border-destructive/20;

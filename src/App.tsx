@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Login from "./pages/auth/Login";
 import RequestReset from "./pages/auth/RequestReset";
 import SelfRegister from "./pages/auth/SelfRegister";
+import PartnerRegistration from "./pages/PartnerRegistration";
 import Dashboard from "./pages/client/Dashboard";
 import Accounts from "./pages/client/Accounts";
 import Transactions from "./pages/client/Transactions";
@@ -24,7 +25,31 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30 * 1000, // 30 seconds
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Don't retry on 401 errors
+        if (error?.message === 'Unauthorized' || error?.silent) {
+          return false;
+        }
+        return failureCount < 1;
+      },
+      onError: (error: any) => {
+        // Suppress console errors for 401 Unauthorized
+        if (error?.message === 'Unauthorized' || error?.silent) {
+          return; // Don't log to console
+        }
+        // Log other errors normally
+        console.error('Query error:', error);
+      },
+    },
+    mutations: {
+      onError: (error: any) => {
+        // Suppress console errors for 401 Unauthorized
+        if (error?.message === 'Unauthorized' || error?.silent) {
+          return; // Don't log to console
+        }
+        // Log other errors normally
+        console.error('Mutation error:', error);
+      },
     },
   },
 });
@@ -43,6 +68,7 @@ const App = () => (
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/request-reset" element={<RequestReset />} />
           <Route path="/auth/register" element={<SelfRegister />} />
+          <Route path="/partner-registration" element={<PartnerRegistration />} />
           
           {/* Member Routes */}
           <Route path="/client/dashboard" element={<Dashboard />} />

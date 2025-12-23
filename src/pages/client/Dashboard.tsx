@@ -1,7 +1,7 @@
 // Member Dashboard Page
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Wallet, CreditCard, FileText, Bell, ChevronRight } from 'lucide-react';
+import { Wallet, CreditCard, FileText, Bell, ChevronRight, Phone } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -50,13 +50,12 @@ export default function Dashboard() {
     enabled: isAuthenticated,
   });
 
-  const { data: notifications } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: () => api.client.getNotifications(),
+  const { data: unreadNotifications = 0 } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => api.client.getUnreadNotificationCount(),
     enabled: isAuthenticated,
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
-
-  const unreadNotifications = notifications?.filter(n => !n.read).length || 0;
   const recentTransactions = recentTransactionsData?.data || [];
 
   const greeting = () => {
@@ -167,9 +166,13 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground mb-4">
               Contact our support team for any assistance with your account.
             </p>
-            <Button variant="outline" className="w-full">
-              Contact Support
-            </Button>
+            <a
+              href="tel:+251988888000"
+              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg transition-colors font-medium"
+            >
+              <Phone className="h-4 w-4" />
+              <span>Contact Support</span>
+            </a>
           </div>
         </div>
       </main>

@@ -14,8 +14,10 @@ import type {
   // Get API base URL from environment variable
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001/api';
   
-  // Helper to get auth token
-  const getToken = () => localStorage.getItem('accessToken');
+  // Helper to get auth token (check both localStorage and sessionStorage)
+  const getToken = () => {
+    return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+  };
   
   // Helper to map product codes to account types
   function mapProductCodeToAccountType(productCode: string): Account['account_type'] {
@@ -56,9 +58,11 @@ import type {
   
   // Helper to clear auth and redirect to login
   function clearAuthAndRedirect() {
-    // Clear all auth data from localStorage
+    // Clear all auth data from both localStorage and sessionStorage
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
     localStorage.removeItem('auth-storage'); // Zustand persist key
     
     // Redirect to login page (only if not already on auth pages)
@@ -66,8 +70,12 @@ import type {
     if (currentPath !== '/auth/login' && 
         !currentPath.startsWith('/auth/') && 
         currentPath !== '/' &&
-        currentPath !== '/partner-registration') {
-      window.location.href = '/auth/login';
+        currentPath !== '/partner-registration' &&
+        currentPath !== '/loan-request') {
+      // Use a small delay to allow any ongoing operations to complete
+      setTimeout(() => {
+        window.location.href = '/auth/login';
+      }, 100);
     }
   }
 
@@ -861,6 +869,15 @@ import type {
       },
       
       /**
+       * Get loan requests
+       * GET /api/loan-requests
+       */
+      getLoanRequests: async (): Promise<any[]> => {
+        const response = await apiFetch<{ data: any[] }>('/loan-requests');
+        return response.data;
+      },
+      
+      /**
        * Get notifications
        * GET /api/client/notifications
        */
@@ -1041,6 +1058,39 @@ import type {
           }
           
           throw new Error(error.message || `Partner request failed: ${response.status} ${response.statusText}`);
+        }
+        
+        return response.json();
+      },
+      
+      /**
+       * Create a loan request (public endpoint, can be called without auth)
+       * POST /api/loan-requests
+       */
+      createLoanRequest: async (data: any): Promise<any> => {
+        const token = getToken();
+        const response = await fetch(`${API_BASE}/loan-requests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: 'Loan request failed' }));
+          
+          // Extract detailed validation errors
+          if (error.details && Array.isArray(error.details)) {
+            const validationErrors = error.details.map((detail: any) => {
+              const field = detail.path?.join('.') || detail.context?.label || 'field';
+              return `${field}: ${detail.message}`;
+            }).join(', ');
+            throw new Error(`Validation failed: ${validationErrors}`);
+          }
+          
+          throw new Error(error.message || `Loan request failed: ${response.status} ${response.statusText}`);
         }
         
         return response.json();

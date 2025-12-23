@@ -132,6 +132,24 @@ export default function Dashboard() {
           </div>
         </section>
 
+        {/* Loan Request Section */}
+        <section className="mt-6">
+          <div className="bg-card rounded-xl border border-border/50 shadow-sm p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground mb-1">Request a Loan</h3>
+                <p className="text-sm text-muted-foreground">Submit a loan request application</p>
+              </div>
+              <Link to="/loan-request">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Apply Now
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* Recent Transactions */}
         <section className="mt-6">
           <div className="flex items-center justify-between mb-3">

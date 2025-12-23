@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import "@/lib/i18n";
 
 // Pages
@@ -11,6 +13,7 @@ import Login from "./pages/auth/Login";
 import RequestReset from "./pages/auth/RequestReset";
 import SelfRegister from "./pages/auth/SelfRegister";
 import PartnerRegistration from "./pages/PartnerRegistration";
+import LoanRequest from "./pages/LoanRequest";
 import Dashboard from "./pages/client/Dashboard";
 import Accounts from "./pages/client/Accounts";
 import Transactions from "./pages/client/Transactions";
@@ -54,12 +57,25 @@ const queryClient = new QueryClient({
   },
 });
 
+// Component to initialize auth on app load
+const AuthInitializer = () => {
+  const { initializeAuth } = useAuth();
+  
+  useEffect(() => {
+    // Initialize auth state on app load
+    initializeAuth();
+  }, [initializeAuth]);
+  
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AuthInitializer />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Index />} />
@@ -69,6 +85,7 @@ const App = () => (
           <Route path="/auth/request-reset" element={<RequestReset />} />
           <Route path="/auth/register" element={<SelfRegister />} />
           <Route path="/partner-registration" element={<PartnerRegistration />} />
+          <Route path="/loan-request" element={<LoanRequest />} />
           
           {/* Member Routes */}
           <Route path="/client/dashboard" element={<Dashboard />} />

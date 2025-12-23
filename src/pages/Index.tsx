@@ -134,11 +134,22 @@ export default function Index() {
             {' '}or visit your nearest branch.
           </p>
           
-          <Link to="/partner-registration" className="block mt-3">
-            <Button variant="outline" className="w-full h-12 text-base">
-              Partner Registration
-            </Button>
-          </Link>
+          {/* Public Services */}
+          <div className="mt-4 space-y-3">
+            <h3 className="text-sm font-semibold text-muted-foreground text-center">Public Services</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Link to="/loan-request" className="block">
+                <Button variant="outline" className="w-full h-12 text-base">
+                  Loan Request
+                </Button>
+              </Link>
+              <Link to="/partner-registration" className="block">
+                <Button variant="outline" className="w-full h-12 text-base">
+                  Partner Registration
+                </Button>
+              </Link>
+            </div>
+          </div>
         </motion.div>
       </div>
 

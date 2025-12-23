@@ -101,7 +101,7 @@ export interface Member {
     processed_at?: string;
   }
   
-  export type RequestType = 'DEPOSIT' | 'REPAYMENT' | 'PROFILE_UPDATE' | 'PASSWORD_RESET' | 'DOCUMENT_UPLOAD';
+  export type RequestType = 'DEPOSIT' | 'REPAYMENT' | 'LOAN_REQUEST' | 'PROFILE_UPDATE' | 'PASSWORD_RESET' | 'DOCUMENT_UPLOAD';
   export type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
   
   export interface Notification {

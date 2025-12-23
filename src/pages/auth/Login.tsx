@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { api } from '@/lib/api';
 
 const loginSchema = z.object({
   phone: z.string().min(10, 'Please enter a valid phone number'),
@@ -45,12 +46,40 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      await login(data.phone, data.password);
+      await login(data.phone, data.password, data.remember || false);
+      
+      // Check for pending loan request and auto-submit
+      const pendingRequest = localStorage.getItem('pendingLoanRequest');
+      if (pendingRequest) {
+        try {
+          const requestData = JSON.parse(pendingRequest);
+          await api.public.createLoanRequest({
+            loan_purpose: requestData.loan_purpose,
+            other_purpose: requestData.other_purpose,
+            requested_amount: parseFloat(requestData.requested_amount),
+          });
+          localStorage.removeItem('pendingLoanRequest');
+          toast({
+            title: 'Loan Request Submitted',
+            description: 'Your loan request has been automatically submitted after login.',
+          });
+          navigate('/loan-request?submitted=true');
+          return;
+        } catch (error) {
+          console.error('Failed to auto-submit loan request:', error);
+          // Continue to dashboard even if auto-submit fails
+        }
+      }
+      
       toast({
         title: 'Welcome back!',
         description: 'Successfully logged in.',
       });
-      navigate('/client/dashboard');
+      
+      // Check for redirect parameter
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirect = searchParams.get('redirect');
+      navigate(redirect || '/client/dashboard');
     } catch (error) {
       toast({
         title: 'Login failed',
@@ -164,6 +193,16 @@ export default function Login() {
           <div className="p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground text-center">
               Use your registered phone number and password (min. 6 characters)
+            </p>
+          </div>
+
+          {/* Register Link */}
+          <div className="mt-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Don't have an account?{' '}
+              <Link to="/auth/register" className="text-primary hover:underline font-medium">
+                Register as Member
+              </Link>
             </p>
           </div>
         </form>

@@ -30,6 +30,7 @@ const formatDate = (dateStr: string) => {
 const requestTypeIcons: Record<Request['type'], string> = {
   DEPOSIT: '💰',
   REPAYMENT: '💳',
+  LOAN_REQUEST: '📋',
   PROFILE_UPDATE: '👤',
   PASSWORD_RESET: '🔐',
   DOCUMENT_UPLOAD: '📄',
@@ -49,7 +50,12 @@ export default function Requests() {
     queryFn: () => api.client.getLoanRepaymentRequests(),
   });
 
-  const isLoading = depositLoading || loanRepaymentLoading;
+  const { data: loanRequestsData, isLoading: loanRequestsLoading } = useQuery({
+    queryKey: ['loan-requests'],
+    queryFn: () => api.client.getLoanRequests(),
+  });
+
+  const isLoading = depositLoading || loanRepaymentLoading || loanRequestsLoading;
 
   // Transform deposit requests to match Request type
   const depositRequests: Request[] = depositRequestsData?.map((req: any) => ({
@@ -77,8 +83,49 @@ export default function Requests() {
     created_at: req.created_at,
   })) || [];
 
-  // Combine both types of requests and sort by created_at descending
-  const requests: Request[] = [...depositRequests, ...loanRepaymentRequests].sort((a, b) => 
+  // Transform loan requests to match Request type
+  const loanRequests: Request[] = loanRequestsData?.map((req: any) => {
+    const purposeMap: Record<string, string> = {
+      'CAR': 'Car',
+      'HOUSE': 'House',
+      'SCHOOL': 'School',
+      'CHILDREN': 'Children',
+      'BUSINESS': 'Business',
+      'MEDICAL': 'Medical',
+      'WEDDING': 'Wedding',
+      'AGRICULTURE': 'Agriculture',
+      'OTHER': req.other_purpose || 'Other',
+    };
+    const purposeLabel = purposeMap[req.loan_purpose] || req.loan_purpose;
+    
+    // Build staff notes: if approved, show default message + staff notes if available
+    let staffNotes = null;
+    if (req.status === 'APPROVED') {
+      const defaultMessage = 'Approved. Please visit our office to complete your loan application.';
+      if (req.notes && req.notes.trim()) {
+        staffNotes = `${defaultMessage}\n\n${req.notes}`;
+      } else {
+        staffNotes = defaultMessage;
+      }
+    } else if (req.status === 'REJECTED' && req.rejection_reason) {
+      staffNotes = req.rejection_reason;
+    }
+    
+    return {
+      id: req.request_id,
+      request_id: req.request_id,
+      type: 'LOAN_REQUEST' as Request['type'],
+      status: req.status as Request['status'],
+      amount: Number(req.requested_amount || 0),
+      description: `Loan Request - ${purposeLabel}`,
+      staff_notes: staffNotes,
+      processed_by: req.approver_username || null,
+      created_at: req.created_at,
+    };
+  }) || [];
+
+  // Combine all types of requests and sort by created_at descending
+  const requests: Request[] = [...depositRequests, ...loanRepaymentRequests, ...loanRequests].sort((a, b) => 
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
@@ -164,7 +211,7 @@ export default function Requests() {
                       <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground">Staff Notes</span>
                     </div>
-                    <p className="text-sm">{request.staff_notes}</p>
+                    <p className="text-sm whitespace-pre-line">{request.staff_notes}</p>
                   </div>
                 )}
 
